@@ -240,7 +240,9 @@ public class AiUtils {
                 originalProperty.advancedValue(),
                 originalProperty.imports(),
                 originalProperty.defaultValue(),
-                originalProperty.comment()
+                originalProperty.comment(),
+                null,
+                null
         );
     }
 
@@ -271,7 +273,9 @@ public class AiUtils {
                 original.advancedValue(),
                 original.imports(),
                 original.defaultValue(),
-                original.comment()
+                original.comment(),
+                null,
+                null
         );
     }
 
@@ -315,7 +319,9 @@ public class AiUtils {
                 original.advancedValue(),
                 original.imports(),
                 original.defaultValue(),
-                original.comment()
+                original.comment(),
+                null,
+                null
         );
     }
 
@@ -348,7 +354,9 @@ public class AiUtils {
                 original.advancedValue(),
                 original.imports(),
                 original.defaultValue(),
-                original.comment()
+                original.comment(),
+                null,
+                null
         );
     }
 
@@ -391,7 +399,9 @@ public class AiUtils {
                 property.advancedValue(),
                 property.imports(),
                 property.defaultValue(),
-                property.comment()
+                property.comment(),
+                null,
+                null
         );
         nodeBuilder.properties().build().put(key, copied);
     }
