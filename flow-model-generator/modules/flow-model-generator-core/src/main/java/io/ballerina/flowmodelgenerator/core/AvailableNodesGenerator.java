@@ -316,6 +316,12 @@ public class AvailableNodesGenerator {
                 .items(getWorkflowNodes(isInWorkflowFunction))
                 .stepOut();
 
+        if (isInWorkflowFunction) {
+            this.rootBuilder.stepIn(Category.Name.BUILTIN_ACTIVITIES)
+                    .items(getBuiltinActivityNodes())
+                    .stepOut();
+        }
+
         AvailableNode function = new AvailableNode(
                 new Metadata.Builder<>(null)
                         .label("Call Function")
@@ -437,34 +443,8 @@ public class AvailableNodesGenerator {
     private List<Item> getWorkflowNodes(boolean isInWorkflowFunction) {
         List<Item> workflowNodes = new ArrayList<>();
 
-        // Always available workflow orchestration nodes
-        AvailableNode runWorkflow = new AvailableNode(
-                new Metadata.Builder<>(null)
-                        .label(Workflow.RUN_LABEL)
-                        .description(Workflow.RUN_DESCRIPTION)
-                        .build(),
-                new Codedata.Builder<>(null)
-                        .node(NodeKind.WORKFLOW_RUN)
-                        .build(),
-                true
-        );
-
-        AvailableNode sendData = new AvailableNode(
-                new Metadata.Builder<>(null)
-                        .label(Workflow.SEND_DATA_LABEL)
-                        .description(Workflow.SEND_DATA_DESCRIPTION)
-                        .build(),
-                new Codedata.Builder<>(null)
-                        .node(NodeKind.SEND_DATA)
-                        .build(),
-                true
-        );
-
-        workflowNodes.add(runWorkflow);
-        workflowNodes.add(sendData);
-
-        // Only add these nodes inside @workflow:Workflow functions
         if (isInWorkflowFunction) {
+            // Inside a workflow function: only Call Activity and Wait for Data
             AvailableNode callActivity = new AvailableNode(
                     new Metadata.Builder<>(null)
                             .label(Workflow.CALL_ACTIVITY_LABEL)
@@ -489,9 +469,81 @@ public class AvailableNodesGenerator {
 
             workflowNodes.add(callActivity);
             workflowNodes.add(waitData);
+        } else {
+            // Outside workflow function: Run Workflow and Send Data
+            AvailableNode runWorkflow = new AvailableNode(
+                    new Metadata.Builder<>(null)
+                            .label(Workflow.RUN_LABEL)
+                            .description(Workflow.RUN_DESCRIPTION)
+                            .build(),
+                    new Codedata.Builder<>(null)
+                            .node(NodeKind.WORKFLOW_RUN)
+                            .build(),
+                    true
+            );
+
+            AvailableNode sendData = new AvailableNode(
+                    new Metadata.Builder<>(null)
+                            .label(Workflow.SEND_DATA_LABEL)
+                            .description(Workflow.SEND_DATA_DESCRIPTION)
+                            .build(),
+                    new Codedata.Builder<>(null)
+                            .node(NodeKind.SEND_DATA)
+                            .build(),
+                    true
+            );
+
+            workflowNodes.add(runWorkflow);
+            workflowNodes.add(sendData);
         }
 
         return workflowNodes;
+    }
+
+    private List<Item> getBuiltinActivityNodes() {
+        List<Item> builtinNodes = new ArrayList<>();
+
+        AvailableNode restActivity = new AvailableNode(
+                new Metadata.Builder<>(null)
+                        .label(Workflow.BUILTIN_REST_LABEL)
+                        .description(Workflow.BUILTIN_REST_DESCRIPTION)
+                        .build(),
+                new Codedata.Builder<>(null)
+                        .node(NodeKind.BUILTIN_ACTIVITY)
+                        .symbol(Workflow.BUILTIN_REST_SYMBOL)
+                        .build(),
+                true
+        );
+
+        AvailableNode soapActivity = new AvailableNode(
+                new Metadata.Builder<>(null)
+                        .label(Workflow.BUILTIN_SOAP_LABEL)
+                        .description(Workflow.BUILTIN_SOAP_DESCRIPTION)
+                        .build(),
+                new Codedata.Builder<>(null)
+                        .node(NodeKind.BUILTIN_ACTIVITY)
+                        .symbol(Workflow.BUILTIN_SOAP_SYMBOL)
+                        .build(),
+                true
+        );
+
+        AvailableNode emailActivity = new AvailableNode(
+                new Metadata.Builder<>(null)
+                        .label(Workflow.BUILTIN_EMAIL_LABEL)
+                        .description(Workflow.BUILTIN_EMAIL_DESCRIPTION)
+                        .build(),
+                new Codedata.Builder<>(null)
+                        .node(NodeKind.BUILTIN_ACTIVITY)
+                        .symbol(Workflow.BUILTIN_EMAIL_SYMBOL)
+                        .build(),
+                true
+        );
+
+        builtinNodes.add(restActivity);
+        builtinNodes.add(soapActivity);
+        builtinNodes.add(emailActivity);
+
+        return builtinNodes;
     }
 
     private void setStopNode(NonTerminalNode node) {
