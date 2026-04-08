@@ -1,0 +1,138 @@
+/*
+ *  Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com)
+ *
+ *  WSO2 LLC. licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
+ */
+
+package io.ballerina.flowmodelgenerator.core.model.node.builtin;
+
+import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
+import io.ballerina.flowmodelgenerator.core.model.Property;
+import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Defines the contract for builtin activity types (REST, SOAP, Email).
+ * Each strategy provides form fields for the UI and generates the corresponding Ballerina source code.
+ *
+ * @since 1.8.0
+ */
+public interface BuiltinActivityStrategy {
+
+    /**
+     * Sets the form fields for this activity type using the fluent PropertiesBuilder API.
+     *
+     * @param nodeBuilder the node builder to add properties to
+     * @param context     the template context for resolving symbols
+     */
+    void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context);
+
+    /**
+     * Generates the activity function source code and returns the text edits.
+     * This generates:
+     * 1. Configurable variables for auth/connection config
+     * 2. The @workflow:Activity annotated function with inline client code
+     *
+     * @param sourceBuilder the source builder used for code generation
+     * @return the generated source code as a string for the function body
+     */
+    String generateActivityFunctionBody(SourceBuilder sourceBuilder);
+
+    /**
+     * Returns the parameter list string for the generated activity function.
+     *
+     * @param sourceBuilder the source builder
+     * @return the parameters string (e.g., "string resourcePath, json payload")
+     */
+    String getActivityFunctionParams(SourceBuilder sourceBuilder);
+
+    /**
+     * Returns the return type for the generated activity function.
+     *
+     * @param sourceBuilder the source builder
+     * @return the return type string (e.g., "json|error")
+     */
+    String getActivityReturnType(SourceBuilder sourceBuilder);
+
+    /**
+     * Returns the configurable variable declarations to be generated.
+     *
+     * @param sourceBuilder the source builder
+     * @param activityName  the name of the activity (used as prefix for configurable names)
+     * @return list of configurable variable declaration strings
+     */
+    List<String> getConfigurableDeclarations(SourceBuilder sourceBuilder, String activityName);
+
+    /**
+     * Returns the import statements required by this activity type.
+     *
+     * @param sourceBuilder the source builder
+     * @return set of imports as "org/module" strings
+     */
+    Set<String[]> getRequiredImports(SourceBuilder sourceBuilder);
+
+    /**
+     * Returns the default function name prefix for this activity type.
+     *
+     * @return the default name prefix (e.g., "callRest", "callSoap", "sendEmail")
+     */
+    String getDefaultFunctionNamePrefix();
+
+    /**
+     * Returns the label for this activity type.
+     *
+     * @return the display label
+     */
+    String getLabel();
+
+    /**
+     * Returns the description for this activity type.
+     *
+     * @return the display description
+     */
+    String getDescription();
+
+    /**
+     * Builds the argument entries for the call activity invocation.
+     * Override this when properties are nested inside dynamicFormFields.
+     * Return null to use the default argument building logic.
+     *
+     * @param sourceBuilder the source builder
+     * @return list of argument entries (e.g., "url: \"https://...\""), or null for default behavior
+     */
+    default List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
+        List<String> args = new ArrayList<>();
+        String params = getActivityFunctionParams(sourceBuilder);
+        if (params.isEmpty()) {
+            return args;
+        }
+        Map<String, Property> properties = sourceBuilder.flowNode.properties();
+        if (properties == null) {
+            return args;
+        }
+        for (String param : params.split(",")) {
+            String paramName = param.trim().split("\\s+")[1];
+            Property prop = properties.get(paramName);
+            if (prop != null && prop.value() != null && !prop.value().toString().isEmpty()) {
+                args.add(paramName + ": " + prop.value());
+            }
+        }
+        return args;
+    }
+}
