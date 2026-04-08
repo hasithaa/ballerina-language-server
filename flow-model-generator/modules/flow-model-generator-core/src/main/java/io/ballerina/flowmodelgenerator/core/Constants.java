@@ -123,6 +123,17 @@ public class Constants {
         public static final String DEFAULT_INPUT_PARAM_NAME = "input";
         public static final String DATA_SUFFIX = "Data";
         public static final String ANYDATA = "anydata";
+
+        // Builtin activity constants
+        public static final String BUILTIN_REST_LABEL = "Call REST API";
+        public static final String BUILTIN_REST_DESCRIPTION = "Call a REST API endpoint";
+        public static final String BUILTIN_REST_SYMBOL = "REST";
+        public static final String BUILTIN_SOAP_LABEL = "Call SOAP API";
+        public static final String BUILTIN_SOAP_DESCRIPTION = "Call a SOAP web service";
+        public static final String BUILTIN_SOAP_SYMBOL = "SOAP";
+        public static final String BUILTIN_EMAIL_LABEL = "Send Email";
+        public static final String BUILTIN_EMAIL_DESCRIPTION = "Send an email via SMTP";
+        public static final String BUILTIN_EMAIL_SYMBOL = "EMAIL";
     }
 
     // Constants used for AI
