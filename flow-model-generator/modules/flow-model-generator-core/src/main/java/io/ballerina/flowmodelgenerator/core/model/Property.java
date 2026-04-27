@@ -400,6 +400,56 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
         private Map<String, Map<String, Property>> dynamicFormFields;
         private List<ItemOption> itemOptions;
 
+        /**
+         * Creates a builder pre-populated with all fields from an existing property.
+         * Use this instead of constructing a {@code new Property(...)} manually when only a subset
+         * of fields needs to be changed — avoids fragile positional {@code null} arguments when
+         * the record gains new components.
+         *
+         * @param original the property to copy all fields from
+         * @return a new {@code Builder<Object>} initialised from {@code original}
+         */
+        public static Builder<Object> copyFrom(Property original) {
+            Builder<Object> builder = new Builder<>(null);
+            if (original.types() != null) {
+                builder.types.addAll(original.types());
+            }
+            builder.value = original.value();
+            builder.oldValue = original.oldValue();
+            builder.placeholder = original.placeholder();
+            builder.optional = original.optional();
+            builder.editable = original.editable();
+            builder.advanced = original.advanced();
+            builder.hidden = original.hidden();
+            builder.modified = original.modified();
+            builder.advancedValue = original.advancedValue();
+            builder.imports = original.imports();
+            builder.defaultValue = original.defaultValue();
+            builder.commentProperty = original.comment();
+            builder.dynamicFormFields = original.dynamicFormFields();
+            builder.itemOptions = original.itemOptions();
+            if (original.metadata() != null) {
+                builder.metadataBuilder = new Metadata.Builder<>(builder);
+                builder.metadataBuilder.label(original.metadata().label())
+                        .description(original.metadata().description())
+                        .keywords(original.metadata().keywords())
+                        .icon(original.metadata().icon())
+                        .functionKind(original.metadata().functionKind())
+                        .data(original.metadata().data());
+            }
+            if (original.diagnostics() != null) {
+                builder.diagnosticsBuilder = new Diagnostics.Builder<>(builder);
+            }
+            if (original.codedata() != null) {
+                builder.codedataBuilder = new PropertyCodedata.Builder<>(builder);
+                builder.codedataBuilder.kind(original.codedata().kind())
+                        .originalName(original.codedata().originalName())
+                        .dependentProperty(original.codedata().dependentProperty())
+                        .lineRange(original.codedata().lineRange());
+            }
+            return builder;
+        }
+
         public Builder(T parentBuilder) {
             super(parentBuilder);
         }
@@ -534,6 +584,15 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
 
         public Builder<T> itemOptions(List<ItemOption> itemOptions) {
             this.itemOptions = itemOptions;
+            return this;
+        }
+
+        /**
+         * Discards all previously accumulated type entries so the caller can add
+         * a fresh set of types (e.g. to replace EXPRESSION with SINGLE_SELECT).
+         */
+        public Builder<T> clearTypes() {
+            this.types.clear();
             return this;
         }
 

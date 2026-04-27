@@ -294,35 +294,12 @@ public class AiUtils {
             throw new IllegalArgumentException("Original property metadata cannot be null");
         }
 
-        Metadata updatedMetadata = new Metadata(
-                newLabel,
-                original.metadata().description(),
-                original.metadata().keywords(),
-                original.metadata().icon(),
-                original.metadata().functionKind(),
-                original.metadata().data()
-        );
-
-        return new Property(
-                updatedMetadata,
-                original.types(),
-                original.value(),
-                original.oldValue(),
-                original.placeholder(),
-                original.optional(),
-                original.editable(),
-                original.advanced(),
-                original.hidden(),
-                original.modified(),
-                original.diagnostics(),
-                original.codedata(),
-                original.advancedValue(),
-                original.imports(),
-                original.defaultValue(),
-                original.comment(),
-                null,
-                null
-        );
+        return Property.Builder.copyFrom(original)
+                .metadata()
+                    .label(newLabel)
+                    .description(original.metadata().description())
+                    .stepOut()
+                .build();
     }
 
     /**
@@ -334,30 +311,14 @@ public class AiUtils {
      * @return the new property with SINGLE_SELECT type
      */
     public static Property convertToSingleSelect(Property original, List<String> options) {
-        List<PropertyType> selectTypes = List.of(
-                new PropertyType(Property.ValueType.SINGLE_SELECT, null, null, Option.of(options),
-                        null, null, null, true)
-        );
-        return new Property(
-                original.metadata(),
-                selectTypes,
-                original.value(),
-                original.oldValue(),
-                original.placeholder(),
-                original.optional(),
-                original.editable(),
-                original.advanced(),
-                original.hidden(),
-                original.modified(),
-                original.diagnostics(),
-                original.codedata(),
-                original.advancedValue(),
-                original.imports(),
-                original.defaultValue(),
-                original.comment(),
-                null,
-                null
-        );
+        return Property.Builder.copyFrom(original)
+                .clearTypes()
+                .type()
+                    .fieldType(Property.ValueType.SINGLE_SELECT)
+                    .options(Option.of(options))
+                    .selected(true)
+                    .stepOut()
+                .build();
     }
 
     /**
