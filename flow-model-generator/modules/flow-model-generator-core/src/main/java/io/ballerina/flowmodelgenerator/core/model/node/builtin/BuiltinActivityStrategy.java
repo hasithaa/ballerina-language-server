@@ -23,7 +23,6 @@ import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Defines the contract for builtin activity types (REST, SOAP, Email).
@@ -39,7 +38,8 @@ public interface BuiltinActivityStrategy {
      * @param org    the organisation (e.g. "ballerina")
      * @param module the module name (e.g. "http")
      */
-    record Import(String org, String module) {}
+    record Import(String org, String module) {
+    }
 
     /**
      * Sets the form fields for this activity type using the fluent PropertiesBuilder API.

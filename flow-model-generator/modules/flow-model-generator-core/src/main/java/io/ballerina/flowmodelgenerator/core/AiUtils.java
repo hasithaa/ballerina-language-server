@@ -45,7 +45,6 @@ import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Option;
 import io.ballerina.flowmodelgenerator.core.model.Property;
-import io.ballerina.flowmodelgenerator.core.model.PropertyType;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 import io.ballerina.modelgenerator.commons.CommonUtils;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
