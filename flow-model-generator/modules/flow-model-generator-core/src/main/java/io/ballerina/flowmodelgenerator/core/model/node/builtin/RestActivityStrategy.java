@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -219,7 +220,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
         // Remote method call
         body.append("    ").append(returnType).append(" response = check httpClient->")
-                .append(method.toLowerCase()).append("(\"\"");
+                .append(method.toLowerCase(Locale.ROOT)).append("(\"\"");
 
         if (isPayloadMethod(method)) {
             body.append(", ").append(hasPayload ? "payload" : "()");
@@ -330,8 +331,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String getDescription() {
-        return "Call a REST API endpoint. Looking for more features?"
-                + " Save and Edit Activity for more options.";
+        return "Create a new workflow activity to call a REST API endpoint.";
     }
 
     private boolean isPayloadMethod(String method) {

@@ -1,0 +1,373 @@
+{
+  "source": "builtin_activity/functions.bal",
+  "position": {
+    "line": 5,
+    "offset": 0
+  },
+  "description": "Builtin activity - Call REST API node template",
+  "codedata": {
+    "node": "BUILTIN_ACTIVITY",
+    "org": "ballerina",
+    "module": "workflow",
+    "symbol": "REST"
+  },
+  "output": {
+    "id": "31",
+    "metadata": {
+      "label": "Call REST API",
+      "description": "Create a new workflow activity to call a REST API endpoint."
+    },
+    "codedata": {
+      "node": "BUILTIN_ACTIVITY",
+      "org": "ballerina",
+      "module": "workflow",
+      "symbol": "REST",
+      "isNew": true
+    },
+    "returning": false,
+    "properties": {
+      "functionName": {
+        "metadata": {
+          "label": "Activity Name",
+          "description": "Name of the generated activity function"
+        },
+        "types": [
+          {
+            "fieldType": "IDENTIFIER",
+            "scope": "Global",
+            "selected": true
+          }
+        ],
+        "value": "callRest",
+        "optional": false,
+        "editable": true,
+        "advanced": false,
+        "hidden": false
+      },
+      "url": {
+        "metadata": {
+          "label": "URL",
+          "description": "The full URL of the REST API endpoint (e.g., https://api.example.com/orders)"
+        },
+        "types": [
+          {
+            "fieldType": "TEXT",
+            "ballerinaType": "string",
+            "selected": true
+          },
+          {
+            "fieldType": "EXPRESSION",
+            "ballerinaType": "string",
+            "selected": false
+          }
+        ],
+        "value": "",
+        "placeholder": "https://api.example.com/orders",
+        "optional": false,
+        "editable": true,
+        "advanced": false,
+        "hidden": false,
+        "codedata": {
+          "kind": "REQUIRED"
+        }
+      },
+      "method": {
+        "metadata": {
+          "label": "Method",
+          "description": "HTTP method to use"
+        },
+        "types": [
+          {
+            "fieldType": "DROPDOWN_CHOICE",
+            "options": [
+              {
+                "label": "GET",
+                "value": "GET"
+              },
+              {
+                "label": "POST",
+                "value": "POST"
+              },
+              {
+                "label": "PUT",
+                "value": "PUT"
+              },
+              {
+                "label": "DELETE",
+                "value": "DELETE"
+              },
+              {
+                "label": "PATCH",
+                "value": "PATCH"
+              }
+            ],
+            "selected": true
+          }
+        ],
+        "value": "GET",
+        "optional": false,
+        "editable": true,
+        "advanced": false,
+        "hidden": false,
+        "codedata": {
+          "kind": "REQUIRED"
+        },
+        "dynamicFormFields": {
+          "GET": {},
+          "POST": {
+            "payload": {
+              "metadata": {
+                "label": "Payload",
+                "description": "Request body payload"
+              },
+              "types": [
+                {
+                  "fieldType": "EXPRESSION",
+                  "ballerinaType": "http:RequestMessage",
+                  "selected": true
+                }
+              ],
+              "value": "",
+              "optional": false,
+              "editable": true,
+              "advanced": false,
+              "hidden": false
+            }
+          },
+          "PUT": {
+            "payload": {
+              "metadata": {
+                "label": "Payload",
+                "description": "Request body payload"
+              },
+              "types": [
+                {
+                  "fieldType": "EXPRESSION",
+                  "ballerinaType": "http:RequestMessage",
+                  "selected": true
+                }
+              ],
+              "value": "",
+              "optional": false,
+              "editable": true,
+              "advanced": false,
+              "hidden": false
+            }
+          },
+          "DELETE": {},
+          "PATCH": {
+            "payload": {
+              "metadata": {
+                "label": "Payload",
+                "description": "Request body payload"
+              },
+              "types": [
+                {
+                  "fieldType": "EXPRESSION",
+                  "ballerinaType": "http:RequestMessage",
+                  "selected": true
+                }
+              ],
+              "value": "",
+              "optional": false,
+              "editable": true,
+              "advanced": false,
+              "hidden": false
+            }
+          }
+        },
+        "itemOptions": [
+          {
+            "id": "GET",
+            "content": "GET",
+            "value": "GET"
+          },
+          {
+            "id": "POST",
+            "content": "POST",
+            "value": "POST"
+          },
+          {
+            "id": "PUT",
+            "content": "PUT",
+            "value": "PUT"
+          },
+          {
+            "id": "DELETE",
+            "content": "DELETE",
+            "value": "DELETE"
+          },
+          {
+            "id": "PATCH",
+            "content": "PATCH",
+            "value": "PATCH"
+          }
+        ]
+      },
+      "payload": {
+        "metadata": {
+          "label": "Payload",
+          "description": "Request body payload (for POST, PUT, PATCH)"
+        },
+        "types": [
+          {
+            "fieldType": "EXPRESSION",
+            "ballerinaType": "http:RequestMessage",
+            "selected": true
+          }
+        ],
+        "value": "",
+        "optional": true,
+        "editable": true,
+        "advanced": false,
+        "hidden": true
+      },
+      "authConfig": {
+        "metadata": {
+          "label": "Authentication",
+          "description": "HTTP client authentication configuration. Select an auth type (Basic, Bearer, OAuth2, etc.) to configure credentials."
+        },
+        "types": [
+          {
+            "fieldType": "RECORD_MAP_EXPRESSION",
+            "ballerinaType": "http:CredentialsConfig|http:BearerTokenConfig|http:JwtIssuerConfig|http:OAuth2ClientCredentialsGrantConfig|http:OAuth2PasswordGrantConfig|http:OAuth2RefreshTokenGrantConfig|http:OAuth2JwtBearerGrantConfig",
+            "typeMembers": [
+              {
+                "type": "CredentialsConfig",
+                "packageInfo": "ballerina:http:2.16.0",
+                "packageName": "http",
+                "kind": "RECORD_TYPE",
+                "selected": false
+              },
+              {
+                "type": "BearerTokenConfig",
+                "packageInfo": "ballerina:http:2.16.0",
+                "packageName": "http",
+                "kind": "RECORD_TYPE",
+                "selected": false
+              },
+              {
+                "type": "JwtIssuerConfig",
+                "packageInfo": "ballerina:http:2.16.0",
+                "packageName": "http",
+                "kind": "RECORD_TYPE",
+                "selected": false
+              },
+              {
+                "type": "OAuth2ClientCredentialsGrantConfig",
+                "packageInfo": "ballerina:http:2.16.0",
+                "packageName": "http",
+                "kind": "RECORD_TYPE",
+                "selected": false
+              },
+              {
+                "type": "OAuth2PasswordGrantConfig",
+                "packageInfo": "ballerina:http:2.16.0",
+                "packageName": "http",
+                "kind": "RECORD_TYPE",
+                "selected": false
+              },
+              {
+                "type": "OAuth2RefreshTokenGrantConfig",
+                "packageInfo": "ballerina:http:2.16.0",
+                "packageName": "http",
+                "kind": "RECORD_TYPE",
+                "selected": false
+              },
+              {
+                "type": "OAuth2JwtBearerGrantConfig",
+                "packageInfo": "ballerina:http:2.16.0",
+                "packageName": "http",
+                "kind": "RECORD_TYPE",
+                "selected": false
+              }
+            ],
+            "selected": false
+          },
+          {
+            "fieldType": "EXPRESSION",
+            "ballerinaType": "http:ClientAuthConfig?",
+            "selected": false
+          }
+        ],
+        "placeholder": "()",
+        "optional": true,
+        "editable": true,
+        "advanced": false,
+        "hidden": false,
+        "defaultValue": "()"
+      },
+      "headers": {
+        "metadata": {
+          "label": "Headers",
+          "description": "HTTP request headers as a map expression"
+        },
+        "types": [
+          {
+            "fieldType": "EXPRESSION",
+            "ballerinaType": "map<string|string[]>",
+            "selected": true
+          }
+        ],
+        "value": "",
+        "optional": true,
+        "editable": true,
+        "advanced": false,
+        "hidden": false
+      },
+      "type": {
+        "metadata": {
+          "label": "Databinding",
+          "description": "Response data binding type (e.g., json, xml, record type)"
+        },
+        "types": [
+          {
+            "fieldType": "TYPE",
+            "selected": true
+          }
+        ],
+        "value": "json",
+        "optional": false,
+        "editable": true,
+        "advanced": false,
+        "hidden": false
+      },
+      "variable": {
+        "metadata": {
+          "label": "Result",
+          "description": "Name of the result variable"
+        },
+        "types": [
+          {
+            "fieldType": "IDENTIFIER",
+            "selected": true
+          }
+        ],
+        "value": "result",
+        "optional": false,
+        "editable": true,
+        "advanced": false,
+        "hidden": false
+      },
+      "checkError": {
+        "metadata": {
+          "label": "Check Error",
+          "description": "Add 'check' to propagate errors. Uncheck to handle errors manually."
+        },
+        "types": [
+          {
+            "fieldType": "FLAG",
+            "ballerinaType": "boolean",
+            "selected": true
+          }
+        ],
+        "value": "true",
+        "optional": true,
+        "editable": true,
+        "advanced": false,
+        "hidden": false
+      }
+    },
+    "flags": 0
+  }
+}
