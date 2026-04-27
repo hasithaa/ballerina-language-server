@@ -131,7 +131,7 @@ public class Constants {
         public static final String BUILTIN_SOAP_LABEL = "Call SOAP API";
         public static final String BUILTIN_SOAP_DESCRIPTION = "Call a SOAP web service";
         public static final String BUILTIN_SOAP_SYMBOL = "SOAP";
-        public static final String BUILTIN_EMAIL_LABEL = "Send Email";
+        public static final String BUILTIN_EMAIL_LABEL = "Send Email (SMTP)";
         public static final String BUILTIN_EMAIL_DESCRIPTION = "Send an email via SMTP";
         public static final String BUILTIN_EMAIL_SYMBOL = "EMAIL";
     }
