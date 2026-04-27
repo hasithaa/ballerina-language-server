@@ -26,12 +26,10 @@ import io.ballerina.flowmodelgenerator.core.model.PropertyTypeMemberInfo;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
 
@@ -59,6 +57,8 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
     private static final String HTTP_PKG_INFO = "ballerina:http:2.16.0";
     private static final String HTTP_PKG_NAME = "http";
+    public static final String HTTP_PKG_ORG = "ballerina";
+    public static final String HTTP_PKG_MODULE = "http";
     private static final String RECORD_TYPE_KIND = "RECORD_TYPE";
 
     private static final String AUTH_BALLERINA_TYPE =
@@ -242,9 +242,9 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
         List<String> params = new ArrayList<>();
         params.add("string url");
 
-        // Payload: only for methods that use a body
+        // Payload: only for methods that use a body; defaults to () so callers may omit it
         if (isPayloadMethod(method)) {
-            params.add("http:RequestMessage payload");
+            params.add("http:RequestMessage payload = ()");
         }
 
         // Headers: always optional
@@ -291,10 +291,8 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     }
 
     @Override
-    public Set<String[]> getRequiredImports(SourceBuilder sourceBuilder) {
-        Set<String[]> imports = new HashSet<>();
-        imports.add(new String[]{"ballerina", "http"});
-        return imports;
+    public List<Import> getRequiredImports(SourceBuilder sourceBuilder) {
+        return List.of(new Import(HTTP_PKG_ORG, HTTP_PKG_MODULE));
     }
 
     @Override

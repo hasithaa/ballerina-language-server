@@ -39,11 +39,9 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextEdit;
 
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.DEFAULT_CTX_PARAM_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.WORKFLOW_MODULE;
@@ -76,11 +74,11 @@ public class BuiltinActivityBuilder extends NodeBuilder {
     public static final String ACTIVITY_NAME_DOC = "Name of the generated activity function";
     public static final String CHECK_ERROR_KEY = "checkError";
 
-    private static final Map<String, BuiltinActivityStrategy> STRATEGY_MAP = new HashMap<>() {{
-        put("REST", new RestActivityStrategy());
-        put("SOAP", new SoapActivityStrategy());
-        put("EMAIL", new EmailActivityStrategy());
-    }};
+    private static final Map<String, BuiltinActivityStrategy> STRATEGY_MAP = Map.of(
+            "REST", new RestActivityStrategy(),
+            "SOAP", new SoapActivityStrategy(),
+            "EMAIL", new EmailActivityStrategy()
+    );
 
     // Cached strategy for the current template instance — used so setConcreteConstData()
     // can re-apply the strategy-specific label/description on build() (which re-invokes
@@ -152,22 +150,70 @@ public class BuiltinActivityBuilder extends NodeBuilder {
                 .map(p -> p.value() != null && !p.value().toString().isEmpty() ? p.value().toString() : null)
                 .orElse(null);
 
+        // Normalize: strip |error and standalone error/?  to find the actual base return type.
+        // Examples: "json" → "json", "json|error" → "json", "error?" → "", "()|error" → "()"
         String returnType;
         if (userReturnType != null) {
-            returnType = userReturnType.contains("|error") ? userReturnType : userReturnType + "|error";
+            String[] typeParts = userReturnType.split("\\|");
+            StringBuilder baseBuilder = new StringBuilder();
+            for (String part : typeParts) {
+                String p = part.trim().replaceAll("\\?$", "");
+                if (!p.isEmpty() && !"error".equals(p)) {
+                    if (baseBuilder.length() > 0) {
+                        baseBuilder.append("|");
+                    }
+                    baseBuilder.append(p);
+                }
+            }
+            String baseType = baseBuilder.toString().trim();
+            if (!baseType.isEmpty() && !"()".equals(baseType)) {
+                returnType = baseType + "|error";
+            } else {
+                returnType = "error?";
+            }
         } else {
             returnType = strategy.getActivityReturnType(sourceBuilder);
         }
+        boolean hasReturnValue = !"error?".equals(returnType);
         String params = strategy.getActivityFunctionParams(sourceBuilder);
         String functionBody = strategy.generateActivityFunctionBody(sourceBuilder);
-        Set<String[]> requiredImports = strategy.getRequiredImports(sourceBuilder);
 
         LineRange lineRange = sourceBuilder.flowNode.codedata().lineRange();
         if (lineRange == null) {
             throw new IllegalStateException("Line range is not available for the builtin activity node");
         }
 
-        // ---- Step 1: Generate activity function definition ----
+        // ---- Step 1: Validate uniqueness BEFORE mutating sourceBuilder ----
+        try {
+            sourceBuilder.workspaceManager.loadProject(sourceBuilder.filePath);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to load project: " + sourceBuilder.filePath, e);
+        }
+        SemanticModel semanticModel = FileSystemUtils.getSemanticModel(sourceBuilder.workspaceManager,
+                sourceBuilder.filePath);
+
+        boolean nameTaken = semanticModel.moduleSymbols().stream()
+                .anyMatch(s -> s.getName().map(activityName::equals).orElse(false));
+        if (nameTaken) {
+            throw new IllegalStateException("Activity name '" + activityName
+                    + "' already exists. Please choose a unique name.");
+        }
+
+        FunctionDefinitionNode functionNode = WorkflowUtil.findEnclosingWorkflowFunction(sourceBuilder);
+        if (functionNode == null) {
+            throw new IllegalStateException("Builtin activity call must be inside a workflow function");
+        }
+
+        Optional<String> optCtxParamName = getContextParamName(functionNode, semanticModel);
+        String ctxParamName;
+        if (optCtxParamName.isPresent()) {
+            ctxParamName = optCtxParamName.get();
+        } else {
+            addContextParameterToFunction(sourceBuilder, functionNode);
+            ctxParamName = DEFAULT_CTX_PARAM_NAME;
+        }
+
+        // ---- Step 2: Generate activity function definition ----
         StringBuilder declarationBuilder = new StringBuilder();
 
         // @workflow:Activity annotation + function definition
@@ -197,36 +243,7 @@ public class BuiltinActivityBuilder extends NodeBuilder {
         String declarationSource = "\n" + declarationBuilder;
         sourceBuilder.addTextEdit(filePath, new TextEdit(endOfFileRange, declarationSource));
 
-        // ---- Step 2: Generate ctx->callActivity(activityName, args) at insertion point ----
-        try {
-            sourceBuilder.workspaceManager.loadProject(sourceBuilder.filePath);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to load project: " + sourceBuilder.filePath, e);
-        }
-        SemanticModel semanticModel = FileSystemUtils.getSemanticModel(sourceBuilder.workspaceManager,
-                sourceBuilder.filePath);
-
-        // Validate activity name uniqueness against module-level symbols
-        boolean nameTaken = semanticModel.moduleSymbols().stream()
-                .anyMatch(s -> s.getName().map(activityName::equals).orElse(false));
-        if (nameTaken) {
-            throw new IllegalStateException("Activity name '" + activityName
-                    + "' already exists. Please choose a unique name.");
-        }
-
-        FunctionDefinitionNode functionNode = WorkflowUtil.findEnclosingWorkflowFunction(sourceBuilder);
-        if (functionNode == null) {
-            throw new IllegalStateException("Builtin activity call must be inside a workflow function");
-        }
-
-        Optional<String> optCtxParamName = getContextParamName(functionNode, semanticModel);
-        String ctxParamName;
-        if (optCtxParamName.isPresent()) {
-            ctxParamName = optCtxParamName.get();
-        } else {
-            addContextParameterToFunction(sourceBuilder, functionNode);
-            ctxParamName = DEFAULT_CTX_PARAM_NAME;
-        }
+        // ---- Step 3: Generate ctx->callActivity(activityName, args) at insertion point ----
 
         // Determine if check should be added
         Optional<Property> checkErrorProp = sourceBuilder.getProperty(CHECK_ERROR_KEY);
@@ -235,7 +252,6 @@ public class BuiltinActivityBuilder extends NodeBuilder {
                 .orElse(false);
 
         // Build the call statement
-        boolean hasReturnValue = !returnType.equals("error?");
         if (useCheck && hasReturnValue) {
             // check mode with return value: <baseType> <variable> = check ctx->callActivity(...);
             sourceBuilder.token()
@@ -284,10 +300,11 @@ public class BuiltinActivityBuilder extends NodeBuilder {
         sourceBuilder.textEdit(SourceBuilder.SourceKind.STATEMENT,
                 sourceBuilder.filePath, CommonUtils.toRange(lineRange));
 
-        // ---- Step 3: Accept imports ----
+        // ---- Step 4: Accept imports ----
         sourceBuilder.acceptImport(WORKFLOW_ORG, WORKFLOW_MODULE);
-        for (String[] imp : requiredImports) {
-            sourceBuilder.acceptImport(imp[0], imp[1]);
+        List<BuiltinActivityStrategy.Import> requiredImports = strategy.getRequiredImports(sourceBuilder);
+        for (BuiltinActivityStrategy.Import imp : requiredImports) {
+            sourceBuilder.acceptImport(imp.org(), imp.module());
         }
 
         return sourceBuilder.build();

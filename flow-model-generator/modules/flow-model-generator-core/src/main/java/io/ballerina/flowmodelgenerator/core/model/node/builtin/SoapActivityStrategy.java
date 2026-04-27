@@ -25,11 +25,9 @@ import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
 
@@ -231,7 +229,6 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
         String soapVersion = getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
         String operation = getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
-        String action = getPropertyValue(properties, ACTION_KEY, "");
 
         String clientModule = SOAP_12.equals(soapVersion) ? "soap12" : "soap11";
         boolean isSendOnly = OP_SEND_ONLY.equals(operation);
@@ -247,19 +244,15 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         }
         body.append(");\n");
 
-        // Build method call
+        // Build method call — action is always a parameter
         if (isSendOnly) {
             body.append("    check soapClient->sendOnly(soapBody");
         } else {
             body.append("    xml response = check soapClient->sendReceive(soapBody");
         }
 
-        // Action parameter
-        if (!action.isEmpty()) {
-            body.append(", ").append(action);
-        } else {
-            body.append(", \"\"");
-        }
+        // Action is forwarded via the action parameter variable
+        body.append(", action");
 
         // Headers parameter
         String headers = getPropertyValue(properties, HEADERS_KEY, "");
@@ -291,24 +284,10 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         List<String> params = new ArrayList<>();
         params.add("string endpointUrl");
         params.add("xml soapBody");
-
-        // Headers: optional
-        String headers = getPropertyValue(properties, HEADERS_KEY, "");
-        if (!headers.isEmpty()) {
-            params.add("map<string|string[]>? headers = ()");
-        }
-
-        // Path: optional
-        String path = getPropertyValue(properties, PATH_KEY, "");
-        if (!path.isEmpty()) {
-            params.add("string? path = ()");
-        }
-
-        // Client config: optional
-        String clientConfig = getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
-        if (!clientConfig.isEmpty()) {
-            params.add(clientModule + ":ClientConfiguration clientConfig = {}");
-        }
+        params.add("string action = \"\"");
+        params.add("map<string|string[]>? headers = ()");
+        params.add("string? path = ()");
+        params.add(clientModule + ":ClientConfiguration? clientConfig = ()");
 
         return String.join(", ", params);
     }
@@ -329,31 +308,28 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
 
         List<String> args = new ArrayList<>();
 
-        // endpointUrl
-        String url = getPropertyValue(properties, ENDPOINT_URL_KEY, "");
-        if (!url.isEmpty()) {
-            args.add("endpointUrl: " + url);
-        }
+        // endpointUrl — quote if TEXT-typed
+        addQuotedArg(args, "endpointUrl", properties, ENDPOINT_URL_KEY);
 
-        // soapBody
+        // soapBody — always an expression, no quoting
         String soapBody = getPropertyValue(properties, BODY_KEY, "");
         if (!soapBody.isEmpty()) {
             args.add("soapBody: " + soapBody);
         }
 
-        // headers
+        // action — quote if TEXT-typed
+        addQuotedArg(args, "action", properties, ACTION_KEY);
+
+        // headers — expression, no quoting
         String headers = getPropertyValue(properties, HEADERS_KEY, "");
         if (!headers.isEmpty()) {
             args.add("headers: " + headers);
         }
 
-        // path
-        String path = getPropertyValue(properties, PATH_KEY, "");
-        if (!path.isEmpty()) {
-            args.add("path: " + path);
-        }
+        // path — quote if TEXT-typed
+        addQuotedArg(args, "path", properties, PATH_KEY);
 
-        // clientConfig
+        // clientConfig — expression, no quoting
         String clientConfig = getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
         if (!clientConfig.isEmpty()) {
             args.add("clientConfig: " + clientConfig);
@@ -362,18 +338,49 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         return args;
     }
 
+    /**
+     * Adds a named argument, quoting the value as a Ballerina string literal when the
+     * property's active type is TEXT (i.e., the user entered plain text, not an expression).
+     */
+    private void addQuotedArg(List<String> args, String paramName,
+                               Map<String, Property> properties, String propKey) {
+        if (properties == null) {
+            return;
+        }
+        Property prop = properties.get(propKey);
+        if (prop == null || prop.value() == null || prop.value().toString().isEmpty()) {
+            return;
+        }
+        String value = prop.value().toString();
+        if (isTextSelected(prop)) {
+            value = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        }
+        args.add(paramName + ": " + value);
+    }
+
+    /**
+     * Returns true when the currently-selected type for the property is TEXT
+     * (meaning the raw user input must be wrapped in Ballerina string quotes).
+     */
+    private boolean isTextSelected(Property prop) {
+        if (prop.types() == null) {
+            return false;
+        }
+        return prop.types().stream()
+                .filter(io.ballerina.flowmodelgenerator.core.model.PropertyType::selected)
+                .findFirst()
+                .map(t -> t.fieldType() == Property.ValueType.TEXT)
+                .orElse(false);
+    }
+
     @Override
-    public Set<String[]> getRequiredImports(SourceBuilder sourceBuilder) {
+    public List<Import> getRequiredImports(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
         String soapVersion = getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
-
-        Set<String[]> imports = new HashSet<>();
         if (SOAP_12.equals(soapVersion)) {
-            imports.add(new String[]{"ballerina", "soap.soap12"});
-        } else {
-            imports.add(new String[]{"ballerina", "soap.soap11"});
+            return List.of(new Import("ballerina", "soap.soap12"));
         }
-        return imports;
+        return List.of(new Import("ballerina", "soap.soap11"));
     }
 
     @Override
