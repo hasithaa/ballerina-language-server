@@ -18,6 +18,7 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node.builtin;
 
+import io.ballerina.flowmodelgenerator.core.model.ItemOption;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.Option;
 import io.ballerina.flowmodelgenerator.core.model.Property;
@@ -25,6 +26,7 @@ import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +35,7 @@ import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
 
 /**
  * Strategy for generating SOAP API call activities using ballerina/soap.
- * Generates an activity function that creates an inline SOAP client and invokes sendReceive.
+ * Supports SOAP 1.1 and SOAP 1.2 clients with SendReceive / SendOnly operations.
  *
  * @since 1.8.0
  */
@@ -42,143 +44,322 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     // Property keys
     public static final String ENDPOINT_URL_KEY = "endpointUrl";
     public static final String SOAP_VERSION_KEY = "soapVersion";
-    public static final String WSS_USERNAME_KEY = "wssUsername";
-    public static final String WSS_PASSWORD_KEY = "wssPassword";
-    public static final String SOAP_ACTION_KEY = "soapAction";
-    public static final String SOAP_BODY_KEY = "soapBody";
+    public static final String OPERATION_KEY = "operation";
+    public static final String ACTION_KEY = "action";
+    public static final String BODY_KEY = "soapBody";
+    public static final String HEADERS_KEY = "headers";
+    public static final String PATH_KEY = "path";
+    public static final String CLIENT_CONFIG_KEY = "clientConfig";
 
     // SOAP version options
-    private static final String SOAP_11 = "1.1";
-    private static final String SOAP_12 = "1.2";
+    private static final String SOAP_11 = "SOAP 1.1";
+    private static final String SOAP_12 = "SOAP 1.2";
+
+    // Operation options
+    private static final String OP_SEND_RECEIVE = "SendReceive";
+    private static final String OP_SEND_ONLY = "SendOnly";
 
     @Override
     public void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
-        // Endpoint URL
+        // Endpoint URL — required, TEXT + EXPRESSION
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Endpoint URL")
-                    .description("The SOAP service endpoint URL")
+                    .description("The SOAP service endpoint URL (e.g., http://www.dneonline.com/calculator.asmx?WSDL)")
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
                 .value("")
+                .placeholder("http://www.example.com/service?WSDL")
                 .editable(true)
                 .stepOut()
                 .addProperty(ENDPOINT_URL_KEY);
 
-        // SOAP Version
+        // SOAP Version — DROPDOWN_CHOICE (SOAP 1.1 / SOAP 1.2)
+        // SOAP 1.1 requires action; SOAP 1.2 makes it optional
+        List<Option> versionOptions = List.of(
+                new Option(SOAP_11, SOAP_11),
+                new Option(SOAP_12, SOAP_12)
+        );
+
+        // Action sub-property shown as required for SOAP 1.1
+        Property actionRequiredSubProp = new Property.Builder<Void>(null)
+                .metadata()
+                    .label("Action")
+                    .description("SOAPAction header value (required for SOAP 1.1)")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
+                .value("")
+                .placeholder("http://tempuri.org/Add")
+                .editable(true)
+                .build();
+
+        // Action sub-property shown as optional for SOAP 1.2
+        Property actionOptionalSubProp = new Property.Builder<Void>(null)
+                .metadata()
+                    .label("Action")
+                    .description("SOAPAction header value (optional for SOAP 1.2)")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
+                .value("")
+                .placeholder("http://tempuri.org/Add")
+                .editable(true)
+                .optional(true)
+                .build();
+
+        Map<String, Map<String, Property>> versionDynamicFields = new LinkedHashMap<>();
+        versionDynamicFields.put(SOAP_11, Map.of(ACTION_KEY, actionRequiredSubProp));
+        versionDynamicFields.put(SOAP_12, Map.of(ACTION_KEY, actionOptionalSubProp));
+
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("SOAP Version")
-                    .description("SOAP protocol version")
+                    .description("SOAP protocol version (1.1 or 1.2)")
                     .stepOut()
                 .type()
-                    .fieldType(Property.ValueType.SINGLE_SELECT)
-                    .options(List.of(
-                            new Option(SOAP_11, SOAP_11),
-                            new Option(SOAP_12, SOAP_12)
-                    ))
+                    .fieldType(Property.ValueType.DROPDOWN_CHOICE)
+                    .options(versionOptions)
                     .selected(true)
                     .stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
                 .value(SOAP_11)
                 .editable(true)
+                .itemOptions(ItemOption.from(versionOptions))
+                .dynamicFormFields(versionDynamicFields)
                 .stepOut()
                 .addProperty(SOAP_VERSION_KEY);
 
-        // WSS Username — optional; if both username and password are provided, WS-Security auth is used
+        // Hidden top-level action property (for form value storage and code generation)
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("WSS Username")
-                    .description("WS-Security username for SOAP authentication (optional)")
+                    .label("Action")
+                    .description("SOAPAction header value")
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
                 .value("")
                 .editable(true)
                 .optional(true)
+                .hidden(true)
                 .stepOut()
-                .addProperty(WSS_USERNAME_KEY);
+                .addProperty(ACTION_KEY);
 
-        // WSS Password — optional; paired with username for WS-Security auth
+        // Operation — DROPDOWN_CHOICE (SendReceive / SendOnly)
+        List<Option> operationOptions = List.of(
+                new Option(OP_SEND_RECEIVE, OP_SEND_RECEIVE),
+                new Option(OP_SEND_ONLY, OP_SEND_ONLY)
+        );
+
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("WSS Password")
-                    .description("WS-Security password for SOAP authentication (optional)")
+                    .label("Operation")
+                    .description("SOAP operation type")
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
-                .value("")
-                .editable(true)
-                .optional(true)
-                .stepOut()
-                .addProperty(WSS_PASSWORD_KEY);
-
-        // SOAP Action
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label("SOAP Action")
-                    .description("The SOAPAction header value (required for SOAP 1.1)")
+                .type()
+                    .fieldType(Property.ValueType.DROPDOWN_CHOICE)
+                    .options(operationOptions)
+                    .selected(true)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
+                .value(OP_SEND_RECEIVE)
                 .editable(true)
+                .itemOptions(ItemOption.from(operationOptions))
                 .stepOut()
-                .addProperty(SOAP_ACTION_KEY);
+                .addProperty(OPERATION_KEY);
 
-        // SOAP Body
+        // SOAP Body — required, EXPRESSION xml
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("SOAP Body")
-                    .description("The XML SOAP body payload")
+                    .description("The XML SOAP envelope/body payload")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("xml").selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
                 .value("")
                 .editable(true)
                 .stepOut()
-                .addProperty(SOAP_BODY_KEY);
+                .addProperty(BODY_KEY);
+
+        // Headers — optional, map<string|string[]>
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Headers")
+                    .description("HTTP headers as a map expression")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType("map<string|string[]>").selected(true).stepOut()
+                .value("")
+                .editable(true)
+                .optional(true)
+                .stepOut()
+                .addProperty(HEADERS_KEY);
+
+        // Path — optional, appended to endpoint URL
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Path")
+                    .description("Optional path to append to the endpoint URL")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
+                .value("")
+                .editable(true)
+                .optional(true)
+                .stepOut()
+                .addProperty(PATH_KEY);
+
+        // Client Config — optional, EXPRESSION for soap client configuration (security, etc.)
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Client Config")
+                    .description("SOAP client configuration record (e.g., security settings with outboundSecurity"
+                            + " and inboundSecurity)")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType("record {}").selected(true).stepOut()
+                .value("")
+                .editable(true)
+                .optional(true)
+                .stepOut()
+                .addProperty(CLIENT_CONFIG_KEY);
     }
 
     @Override
     public String generateActivityFunctionBody(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String endpointUrl = getPropertyValue(properties, ENDPOINT_URL_KEY, "\"\"");
         String soapVersion = getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
-        String soapAction = getPropertyValue(properties, SOAP_ACTION_KEY, "\"\"");
-        String wssUsername = getPropertyValue(properties, WSS_USERNAME_KEY, "");
-        String wssPassword = getPropertyValue(properties, WSS_PASSWORD_KEY, "");
-        boolean hasWssAuth = !wssUsername.isEmpty() && !wssPassword.isEmpty();
+        String operation = getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
+        String action = getPropertyValue(properties, ACTION_KEY, "");
 
-        String clientType = SOAP_12.equals(soapVersion) ? "soap12" : "soap11";
+        String clientModule = SOAP_12.equals(soapVersion) ? "soap12" : "soap11";
+        boolean isSendOnly = OP_SEND_ONLY.equals(operation);
 
         StringBuilder body = new StringBuilder();
-        body.append("    ").append(clientType).append(":Client soapClient = check new (").append(endpointUrl);
-        if (hasWssAuth) {
-            body.append(", {security: {username: ").append(wssUsername)
-                    .append(", password: ").append(wssPassword)
-                    .append(", passwordType: ").append(clientType).append(":TEXT}}");
+
+        // Create SOAP client
+        String clientConfig = getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
+        body.append("    ").append(clientModule)
+                .append(":Client soapClient = check new (endpointUrl");
+        if (!clientConfig.isEmpty()) {
+            body.append(", clientConfig");
         }
         body.append(");\n");
-        body.append("    xml response = check soapClient->sendReceive(soapBody, ").append(soapAction)
-                .append(");\n");
-        body.append("    return response;\n");
+
+        // Build method call
+        if (isSendOnly) {
+            body.append("    check soapClient->sendOnly(soapBody");
+        } else {
+            body.append("    xml response = check soapClient->sendReceive(soapBody");
+        }
+
+        // Action parameter
+        if (!action.isEmpty()) {
+            body.append(", ").append(action);
+        } else {
+            body.append(", \"\"");
+        }
+
+        // Headers parameter
+        String headers = getPropertyValue(properties, HEADERS_KEY, "");
+        if (!headers.isEmpty()) {
+            body.append(", headers = headers");
+        }
+
+        // Path parameter
+        String path = getPropertyValue(properties, PATH_KEY, "");
+        if (!path.isEmpty()) {
+            body.append(", path = path");
+        }
+
+        body.append(");\n");
+
+        if (!isSendOnly) {
+            body.append("    return response;\n");
+        }
 
         return body.toString();
     }
 
     @Override
     public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
-        return "xml soapBody";
+        Map<String, Property> properties = sourceBuilder.flowNode.properties();
+        String soapVersion = getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
+        String clientModule = SOAP_12.equals(soapVersion) ? "soap12" : "soap11";
+
+        List<String> params = new ArrayList<>();
+        params.add("string endpointUrl");
+        params.add("xml soapBody");
+
+        // Headers: optional
+        String headers = getPropertyValue(properties, HEADERS_KEY, "");
+        if (!headers.isEmpty()) {
+            params.add("map<string|string[]>? headers = ()");
+        }
+
+        // Path: optional
+        String path = getPropertyValue(properties, PATH_KEY, "");
+        if (!path.isEmpty()) {
+            params.add("string? path = ()");
+        }
+
+        // Client config: optional
+        String clientConfig = getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
+        if (!clientConfig.isEmpty()) {
+            params.add(clientModule + ":ClientConfiguration clientConfig = {}");
+        }
+
+        return String.join(", ", params);
     }
 
     @Override
     public String getActivityReturnType(SourceBuilder sourceBuilder) {
+        Map<String, Property> properties = sourceBuilder.flowNode.properties();
+        String operation = getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
+        if (OP_SEND_ONLY.equals(operation)) {
+            return "error?";
+        }
         return "xml|error";
     }
 
     @Override
-    public List<String> getConfigurableDeclarations(SourceBuilder sourceBuilder, String activityName) {
-        return new ArrayList<>();
+    public List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
+        Map<String, Property> properties = sourceBuilder.flowNode.properties();
+
+        List<String> args = new ArrayList<>();
+
+        // endpointUrl
+        String url = getPropertyValue(properties, ENDPOINT_URL_KEY, "");
+        if (!url.isEmpty()) {
+            args.add("endpointUrl: " + url);
+        }
+
+        // soapBody
+        String soapBody = getPropertyValue(properties, BODY_KEY, "");
+        if (!soapBody.isEmpty()) {
+            args.add("soapBody: " + soapBody);
+        }
+
+        // headers
+        String headers = getPropertyValue(properties, HEADERS_KEY, "");
+        if (!headers.isEmpty()) {
+            args.add("headers: " + headers);
+        }
+
+        // path
+        String path = getPropertyValue(properties, PATH_KEY, "");
+        if (!path.isEmpty()) {
+            args.add("path: " + path);
+        }
+
+        // clientConfig
+        String clientConfig = getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
+        if (!clientConfig.isEmpty()) {
+            args.add("clientConfig: " + clientConfig);
+        }
+
+        return args;
     }
 
     @Override
@@ -198,6 +379,18 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getDefaultFunctionNamePrefix() {
         return "callSoap";
+    }
+
+    @Override
+    public String getDefaultFormReturnType() {
+        return "xml";
+    }
+
+    @Override
+    public void setPostProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
+        // SOAP: only variable name, no return type field (return type is determined by Operation)
+        nodeBuilder.properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
+                Property.RESULT_NAME, Property.RESULT_DOC, false);
     }
 
     @Override

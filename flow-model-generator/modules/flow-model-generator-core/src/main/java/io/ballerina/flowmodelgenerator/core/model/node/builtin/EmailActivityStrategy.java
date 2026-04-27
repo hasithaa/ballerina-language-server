@@ -22,9 +22,8 @@ import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
@@ -184,15 +183,12 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String generateActivityFunctionBody(SourceBuilder sourceBuilder) {
-        java.util.Optional<Property> funcNameProp = sourceBuilder.getProperty(Property.FUNCTION_NAME_KEY);
-        String activityName = funcNameProp.map(p -> p.value().toString()).orElse("sendEmail");
-
         StringBuilder body = new StringBuilder();
         body.append("    email:SmtpClient emailClient = check new (")
-                .append(activityName).append("Host, ")
-                .append(activityName).append("Username, ")
-                .append(activityName).append("Password, ")
-                .append(activityName).append("Port);\n");
+                .append("host, ")
+                .append("smtpUsername, ")
+                .append("smtpPassword, ")
+                .append("port);\n");
 
         body.append("    check emailClient->sendMessage({\n");
         body.append("        to: toAddress,\n");
@@ -205,22 +201,13 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
-        return "string toAddress, string subject, string body";
+        return "string host, int port, string smtpUsername, string smtpPassword, "
+                + "string toAddress, string subject, string body";
     }
 
     @Override
     public String getActivityReturnType(SourceBuilder sourceBuilder) {
         return "error?";
-    }
-
-    @Override
-    public List<String> getConfigurableDeclarations(SourceBuilder sourceBuilder, String activityName) {
-        List<String> configurables = new ArrayList<>();
-        configurables.add(String.format("configurable string %sHost = ?;", activityName));
-        configurables.add(String.format("configurable int %sPort = 587;", activityName));
-        configurables.add(String.format("configurable string %sUsername = ?;", activityName));
-        configurables.add(String.format("configurable string %sPassword = ?;", activityName));
-        return configurables;
     }
 
     @Override
