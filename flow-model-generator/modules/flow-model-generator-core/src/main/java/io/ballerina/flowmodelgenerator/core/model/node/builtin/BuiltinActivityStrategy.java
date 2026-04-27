@@ -72,12 +72,15 @@ public interface BuiltinActivityStrategy {
 
     /**
      * Returns the configurable variable declarations to be generated.
+     * Default implementation returns an empty list (no configurables).
      *
      * @param sourceBuilder the source builder
      * @param activityName  the name of the activity (used as prefix for configurable names)
      * @return list of configurable variable declaration strings
      */
-    List<String> getConfigurableDeclarations(SourceBuilder sourceBuilder, String activityName);
+    default List<String> getConfigurableDeclarations(SourceBuilder sourceBuilder, String activityName) {
+        return List.of();
+    }
 
     /**
      * Returns the import statements required by this activity type.
@@ -93,6 +96,30 @@ public interface BuiltinActivityStrategy {
      * @return the default name prefix (e.g., "callRest", "callSoap", "sendEmail")
      */
     String getDefaultFunctionNamePrefix();
+
+    /**
+     * Returns the default return type shown in the form's Return Type field.
+     * Override this to change from the default "json".
+     *
+     * @return the default return type (e.g., "json", "xml")
+     */
+    default String getDefaultFormReturnType() {
+        return "json";
+    }
+
+    /**
+     * Sets the post-strategy form properties (return type, variable name, etc.).
+     * Override this to customize the form layout for return type and variable name.
+     * Default implementation adds Return Type and Result Variable Name fields.
+     *
+     * @param nodeBuilder the node builder to add properties to
+     * @param context     the template context for resolving symbols
+     */
+    default void setPostProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
+        nodeBuilder.properties().returnType(getDefaultFormReturnType(), null, false);
+        nodeBuilder.properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
+                Property.RESULT_NAME, Property.RESULT_DOC, false);
+    }
 
     /**
      * Returns the label for this activity type.

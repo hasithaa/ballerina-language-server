@@ -22,6 +22,7 @@ import io.ballerina.flowmodelgenerator.core.model.ItemOption;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.Option;
 import io.ballerina.flowmodelgenerator.core.model.Property;
+import io.ballerina.flowmodelgenerator.core.model.PropertyTypeMemberInfo;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.ArrayList;
@@ -29,7 +30,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
@@ -47,10 +47,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     public static final String METHOD_KEY = "method";
     public static final String PAYLOAD_KEY = "payload";
     public static final String HEADERS_KEY = "headers";
-    public static final String AUTH_KEY = "auth";
-    public static final String USERNAME_KEY = "username";
-    public static final String PASSWORD_KEY = "password";
-    public static final String TOKEN_KEY = "token";
+    public static final String AUTH_CONFIG_KEY = "authConfig";
 
     // HTTP method options
     private static final String METHOD_GET = "GET";
@@ -59,10 +56,31 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     private static final String METHOD_DELETE = "DELETE";
     private static final String METHOD_PATCH = "PATCH";
 
-    // Auth type options
-    private static final String AUTH_NONE = "None";
-    private static final String AUTH_BASIC = "Basic";
-    private static final String AUTH_BEARER = "Bearer";
+    private static final String HTTP_PKG_INFO = "ballerina:http:2.16.0";
+    private static final String HTTP_PKG_NAME = "http";
+    private static final String RECORD_TYPE_KIND = "RECORD_TYPE";
+
+    private static final String AUTH_BALLERINA_TYPE =
+            "http:CredentialsConfig|http:BearerTokenConfig|http:JwtIssuerConfig"
+                    + "|http:OAuth2ClientCredentialsGrantConfig|http:OAuth2PasswordGrantConfig"
+                    + "|http:OAuth2RefreshTokenGrantConfig|http:OAuth2JwtBearerGrantConfig";
+
+    private static final List<PropertyTypeMemberInfo> AUTH_TYPE_MEMBERS = List.of(
+            new PropertyTypeMemberInfo("CredentialsConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
+                    RECORD_TYPE_KIND, false),
+            new PropertyTypeMemberInfo("BearerTokenConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
+                    RECORD_TYPE_KIND, false),
+            new PropertyTypeMemberInfo("JwtIssuerConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
+                    RECORD_TYPE_KIND, false),
+            new PropertyTypeMemberInfo("OAuth2ClientCredentialsGrantConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
+                    RECORD_TYPE_KIND, false),
+            new PropertyTypeMemberInfo("OAuth2PasswordGrantConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
+                    RECORD_TYPE_KIND, false),
+            new PropertyTypeMemberInfo("OAuth2RefreshTokenGrantConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
+                    RECORD_TYPE_KIND, false),
+            new PropertyTypeMemberInfo("OAuth2JwtBearerGrantConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
+                    RECORD_TYPE_KIND, false)
+    );
 
     @Override
     public void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
@@ -142,103 +160,26 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(PAYLOAD_KEY);
 
-        // Auth — DROPDOWN_CHOICE with dynamicFormFields for auth credentials
-        List<Option> authOptions = List.of(
-                new Option(AUTH_NONE, AUTH_NONE),
-                new Option(AUTH_BASIC, AUTH_BASIC),
-                new Option(AUTH_BEARER, AUTH_BEARER)
-        );
-
-        // Build auth sub-properties for dynamicFormFields
-        Property usernameSubProp = new Property.Builder<Void>(null)
-                .metadata()
-                    .label("Username")
-                    .description("Username for Basic authentication")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
-                .value("")
-                .editable(true)
-                .build();
-
-        Property passwordSubProp = new Property.Builder<Void>(null)
-                .metadata()
-                    .label("Password")
-                    .description("Password for Basic authentication")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
-                .value("")
-                .editable(true)
-                .build();
-
-        Property tokenSubProp = new Property.Builder<Void>(null)
-                .metadata()
-                    .label("Token")
-                    .description("Token for Bearer authentication")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
-                .value("")
-                .editable(true)
-                .build();
-
-        Map<String, Map<String, Property>> authDynamicFields = new LinkedHashMap<>();
-        authDynamicFields.put(AUTH_NONE, Map.of());
-        Map<String, Property> basicFields = new LinkedHashMap<>();
-        basicFields.put(USERNAME_KEY, usernameSubProp);
-        basicFields.put(PASSWORD_KEY, passwordSubProp);
-        authDynamicFields.put(AUTH_BASIC, basicFields);
-        authDynamicFields.put(AUTH_BEARER, Map.of(TOKEN_KEY, tokenSubProp));
-
+        // Auth Config — optional, RECORD_MAP_EXPRESSION with all http auth config types
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("Auth")
-                    .description("Authentication type for the REST endpoint")
+                    .label("Authentication")
+                    .description("HTTP client authentication configuration. "
+                            + "Select an auth type (Basic, Bearer, OAuth2, etc.) to configure credentials.")
                     .stepOut()
-                .type()
-                    .fieldType(Property.ValueType.DROPDOWN_CHOICE)
-                    .options(authOptions)
-                    .selected(true)
-                    .stepOut()
-                .value(AUTH_NONE)
+                .type().fieldType(Property.ValueType.RECORD_MAP_EXPRESSION)
+                    .ballerinaType(AUTH_BALLERINA_TYPE)
+                    .typeMembers(AUTH_TYPE_MEMBERS)
+                    .selected(false).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType("http:ClientAuthConfig?")
+                    .selected(false).stepOut()
+                .placeholder("()")
+                .defaultValue("()")
                 .editable(true)
                 .optional(true)
-                .itemOptions(ItemOption.from(authOptions))
-                .dynamicFormFields(authDynamicFields)
                 .stepOut()
-                .addProperty(AUTH_KEY);
-
-        // Hidden top-level auth sub-properties (for form value storage and code generation)
-        nodeBuilder.properties().custom()
-                .metadata().label("Username").description("Username for Basic authentication").stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .value("")
-                .editable(true)
-                .optional(true)
-                .hidden(true)
-                .stepOut()
-                .addProperty(USERNAME_KEY);
-
-        nodeBuilder.properties().custom()
-                .metadata().label("Password").description("Password for Basic authentication").stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .value("")
-                .editable(true)
-                .optional(true)
-                .hidden(true)
-                .stepOut()
-                .addProperty(PASSWORD_KEY);
-
-        nodeBuilder.properties().custom()
-                .metadata().label("Token").description("Token for Bearer authentication").stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .value("")
-                .editable(true)
-                .optional(true)
-                .hidden(true)
-                .stepOut()
-                .addProperty(TOKEN_KEY);
+                .addProperty(AUTH_CONFIG_KEY);
 
         // Headers — optional, map<string|string[]>
         nodeBuilder.properties().custom()
@@ -261,25 +202,18 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
         String method = getPropertyValue(properties, METHOD_KEY, METHOD_GET);
         String returnType = getPropertyValue(properties, Property.TYPE_KEY, "json");
 
-        Optional<Property> funcNameProp = sourceBuilder.getProperty(Property.FUNCTION_NAME_KEY);
-        String activityName = funcNameProp.map(p -> p.value().toString()).orElse("callRest");
-        String configPrefix = camelToUpperSnake(activityName);
-
         boolean hasPayload = isPayloadMethod(method)
                 && !getPropertyValue(properties, PAYLOAD_KEY, "").isEmpty();
         boolean hasHeaders = !getPropertyValue(properties, HEADERS_KEY, "").isEmpty();
 
-        String authType = getPropertyValue(properties, AUTH_KEY, AUTH_NONE);
+        String authConfig = getPropertyValue(properties, AUTH_CONFIG_KEY, "");
 
         StringBuilder body = new StringBuilder();
 
         // Build inline http:Client with optional auth config
         body.append("    http:Client httpClient = check new (url");
-        if (AUTH_BASIC.equals(authType)) {
-            body.append(", {auth: {username: ").append(configPrefix).append("_BASIC_AUTH_USERNAME, password: ")
-                    .append(configPrefix).append("_BASIC_AUTH_PASSWORD}}");
-        } else if (AUTH_BEARER.equals(authType)) {
-            body.append(", {auth: {token: ").append(configPrefix).append("_BEARER_AUTH_TOKEN}}");
+        if (!authConfig.isEmpty() && !"()".equals(authConfig)) {
+            body.append(", {auth: ").append(authConfig).append("}");
         }
         body.append(");\n");
 
@@ -356,22 +290,6 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     }
 
     @Override
-    public List<String> getConfigurableDeclarations(SourceBuilder sourceBuilder, String activityName) {
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String authType = getPropertyValue(properties, AUTH_KEY, AUTH_NONE);
-        String configPrefix = camelToUpperSnake(activityName);
-
-        List<String> configurables = new ArrayList<>();
-        if (AUTH_BASIC.equals(authType)) {
-            configurables.add(String.format("configurable string %s_BASIC_AUTH_USERNAME = ?;", configPrefix));
-            configurables.add(String.format("configurable string %s_BASIC_AUTH_PASSWORD = ?;", configPrefix));
-        } else if (AUTH_BEARER.equals(authType)) {
-            configurables.add(String.format("configurable string %s_BEARER_AUTH_TOKEN = ?;", configPrefix));
-        }
-        return configurables;
-    }
-
-    @Override
     public Set<String[]> getRequiredImports(SourceBuilder sourceBuilder) {
         Set<String[]> imports = new HashSet<>();
         imports.add(new String[]{"ballerina", "http"});
@@ -381,6 +299,28 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getDefaultFunctionNamePrefix() {
         return "callRest";
+    }
+
+    @Override
+    public void setPostProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
+        // Databinding — TYPE field for response data binding (replaces generic "Return Type")
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Databinding")
+                    .description("Response data binding type (e.g., json, xml, record type)")
+                    .stepOut()
+                .value(getDefaultFormReturnType())
+                .type()
+                    .fieldType(Property.ValueType.TYPE)
+                    .selected(true)
+                    .stepOut()
+                .editable(true)
+                .stepOut()
+                .addProperty(Property.TYPE_KEY);
+
+        // Result variable name
+        nodeBuilder.properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
+                Property.RESULT_NAME, Property.RESULT_DOC, false);
     }
 
     @Override
@@ -397,14 +337,6 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     private boolean isPayloadMethod(String method) {
         return METHOD_POST.equalsIgnoreCase(method) || METHOD_PUT.equalsIgnoreCase(method)
                 || METHOD_PATCH.equalsIgnoreCase(method);
-    }
-
-    /**
-     * Converts a camelCase string to UPPER_SNAKE_CASE.
-     * E.g., "callRestApi" → "CALL_REST_API".
-     */
-    private String camelToUpperSnake(String camelCase) {
-        return camelCase.replaceAll("([a-z])([A-Z])", "$1_$2").toUpperCase();
     }
 
     private String getPropertyValue(Map<String, Property> properties, String key, String defaultValue) {
