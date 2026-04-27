@@ -57,9 +57,8 @@ import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilde
  * Delegates form field definition and code generation to a {@link BuiltinActivityStrategy}
  * selected by the {@code codedata.symbol} value.
  *
- * <p>Generates three outputs:
+ * <p>Generates two outputs:
  * <ol>
- *   <li>Configurable variables for auth/connection config</li>
  *   <li>An {@code @workflow:Activity} annotated function with inline client code</li>
  *   <li>A {@code ctx->callActivity(activityName, args)} invocation at the insertion point</li>
  * </ol>
@@ -75,6 +74,7 @@ public class BuiltinActivityBuilder extends NodeBuilder {
     public static final String ACTIVITY_NAME_KEY = "activityName";
     public static final String ACTIVITY_NAME_LABEL = "Activity Name";
     public static final String ACTIVITY_NAME_DOC = "Name of the generated activity function";
+    public static final String CHECK_ERROR_KEY = "checkError";
 
     private static final Map<String, BuiltinActivityStrategy> STRATEGY_MAP = new HashMap<>() {{
         put("REST", new RestActivityStrategy());
@@ -106,12 +106,21 @@ public class BuiltinActivityBuilder extends NodeBuilder {
         // Delegate strategy-specific fields
         strategy.setFormProperties(this, context);
 
-        // Return type field
-        properties().returnType("json", null, false);
+        // Delegate return type and variable name to strategy
+        strategy.setPostProperties(this, context);
 
-        // Result variable name
-        properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
-                Property.RESULT_NAME, Property.RESULT_DOC, false);
+        // Check Error checkbox (default true — adds 'check' to propagate errors)
+        properties().custom()
+                .metadata()
+                    .label("Check Error")
+                    .description("Add 'check' to propagate errors. Uncheck to handle errors manually.")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.FLAG).ballerinaType("boolean").selected(true).stepOut()
+                .value("true")
+                .editable(true)
+                .optional(true)
+                .stepOut()
+                .addProperty(CHECK_ERROR_KEY);
     }
 
     @Override
@@ -143,7 +152,6 @@ public class BuiltinActivityBuilder extends NodeBuilder {
         }
         String params = strategy.getActivityFunctionParams(sourceBuilder);
         String functionBody = strategy.generateActivityFunctionBody(sourceBuilder);
-        List<String> configurables = strategy.getConfigurableDeclarations(sourceBuilder, activityName);
         Set<String[]> requiredImports = strategy.getRequiredImports(sourceBuilder);
 
         LineRange lineRange = sourceBuilder.flowNode.codedata().lineRange();
@@ -151,16 +159,8 @@ public class BuiltinActivityBuilder extends NodeBuilder {
             throw new IllegalStateException("Line range is not available for the builtin activity node");
         }
 
-        // ---- Step 1: Generate configurable variables + activity function definition ----
+        // ---- Step 1: Generate activity function definition ----
         StringBuilder declarationBuilder = new StringBuilder();
-
-        // Configurable variables
-        for (String configurable : configurables) {
-            declarationBuilder.append(configurable).append("\n");
-        }
-        if (!configurables.isEmpty()) {
-            declarationBuilder.append("\n");
-        }
 
         // @workflow:Activity annotation + function definition
         declarationBuilder.append("@workflow:Activity\n");
@@ -212,14 +212,40 @@ public class BuiltinActivityBuilder extends NodeBuilder {
             ctxParamName = DEFAULT_CTX_PARAM_NAME;
         }
 
-        // Build the call statement: <returnType> <variable> = check ctx->callActivity(<activityName>);
+        // Determine if check should be added
+        Optional<Property> checkErrorProp = sourceBuilder.getProperty(CHECK_ERROR_KEY);
+        boolean useCheck = checkErrorProp
+                .map(p -> p.value() != null && "true".equals(p.value().toString()))
+                .orElse(false);
+
+        // Build the call statement
+        boolean hasReturnValue = !returnType.equals("error?");
+        if (useCheck && hasReturnValue) {
+            // check mode with return value: <baseType> <variable> = check ctx->callActivity(...);
+            sourceBuilder.token()
+                    .name(returnType.replace("|error", ""))
+                    .whiteSpace()
+                    .name(variableName)
+                    .whiteSpace()
+                    .keyword(SyntaxKind.EQUAL_TOKEN);
+        } else if (!useCheck && hasReturnValue) {
+            // no check, return includes error: <returnType> <variable> = ctx->callActivity(...);
+            sourceBuilder.token()
+                    .name(returnType)
+                    .whiteSpace()
+                    .name(variableName)
+                    .whiteSpace()
+                    .keyword(SyntaxKind.EQUAL_TOKEN);
+        }
+        // For useCheck && !hasReturnValue: just check ctx->callActivity(...);
+        // For !useCheck && !hasReturnValue: just ctx->callActivity(...);
+        // (error? with no check — fire and forget, error is ignored)
+
+        // Optionally add check keyword
+        if (useCheck) {
+            sourceBuilder.token().keyword(SyntaxKind.CHECK_KEYWORD);
+        }
         sourceBuilder.token()
-                .name(returnType.replace("|error", ""))
-                .whiteSpace()
-                .name(variableName)
-                .whiteSpace()
-                .keyword(SyntaxKind.EQUAL_TOKEN)
-                .keyword(SyntaxKind.CHECK_KEYWORD)
                 .name(ctxParamName)
                 .keyword(SyntaxKind.RIGHT_ARROW_TOKEN)
                 .name(CALL_ACTIVITY_METHOD)
