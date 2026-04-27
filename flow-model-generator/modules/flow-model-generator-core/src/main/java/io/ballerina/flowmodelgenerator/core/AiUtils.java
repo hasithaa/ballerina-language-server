@@ -225,26 +225,9 @@ public class AiUtils {
             throw new IllegalArgumentException("Original property cannot be null");
         }
 
-        return new Property(
-                originalProperty.metadata(),
-                originalProperty.types(),
-                newValue,
-                originalProperty.oldValue(),
-                originalProperty.placeholder(),
-                originalProperty.optional(),
-                originalProperty.editable(),
-                originalProperty.advanced(),
-                originalProperty.hidden(),
-                originalProperty.modified(),
-                originalProperty.diagnostics(),
-                originalProperty.codedata(),
-                originalProperty.advancedValue(),
-                originalProperty.imports(),
-                originalProperty.defaultValue(),
-                originalProperty.comment(),
-                null,
-                null
-        );
+        return Property.Builder.copyFrom(originalProperty)
+                .value(newValue)
+                .build();
     }
 
     /**
@@ -258,26 +241,10 @@ public class AiUtils {
         if (original == null) {
             throw new IllegalArgumentException("Original property cannot be null");
         }
-        return new Property(
-                original.metadata(),
-                original.types(),
-                original.value(),
-                original.oldValue(),
-                original.placeholder(),
-                true,  // optional
-                original.editable(),
-                true,  // advanced
-                original.hidden(),
-                original.modified(),
-                original.diagnostics(),
-                original.codedata(),
-                original.advancedValue(),
-                original.imports(),
-                original.defaultValue(),
-                original.comment(),
-                null,
-                null
-        );
+        return Property.Builder.copyFrom(original)
+                .optional(true)
+                .advanced(true)
+                .build();
     }
 
     /**
@@ -345,26 +312,10 @@ public class AiUtils {
         Object valueToUse = customValue != null ? customValue : property.value();
         boolean hidden = isHidden || property.hidden();
 
-        Property copied = new Property(
-                property.metadata(),
-                property.types(),
-                valueToUse,
-                property.oldValue(),
-                property.placeholder(),
-                property.optional(),
-                property.editable(),
-                property.advanced(),
-                hidden,
-                property.modified(),
-                property.diagnostics(),
-                property.codedata(),
-                property.advancedValue(),
-                property.imports(),
-                property.defaultValue(),
-                property.comment(),
-                null,
-                null
-        );
+        Property copied = Property.Builder.copyFrom(property)
+                .value(valueToUse)
+                .hidden(hidden)
+                .build();
         nodeBuilder.properties().build().put(key, copied);
     }
 
