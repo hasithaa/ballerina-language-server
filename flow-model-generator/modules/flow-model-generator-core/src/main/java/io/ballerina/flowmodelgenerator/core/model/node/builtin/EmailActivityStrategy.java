@@ -22,8 +22,9 @@ import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
 
@@ -191,12 +192,16 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
                 .append("host, ")
                 .append("smtpUsername, ")
                 .append("smtpPassword, ")
-                .append("port);\n");
+                .append("{port: port});");
+        body.append("\n");
 
         body.append("    check emailClient->sendMessage({\n");
         body.append("        to: toAddress,\n");
         body.append("        subject: subject,\n");
-        body.append("        body: body\n");
+        body.append("        body: body,\n");
+        body.append("        'from: fromAddress,\n");
+        body.append("        cc: cc,\n");
+        body.append("        bcc: bcc\n");
         body.append("    });\n");
 
         return body.toString();
@@ -205,7 +210,8 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
         return "string host, int port, string smtpUsername, string smtpPassword, "
-                + "string toAddress, string subject, string body";
+                + "string toAddress, string subject, string body, "
+                + "string? fromAddress = (), string? cc = (), string? bcc = ()";
     }
 
     @Override
@@ -214,10 +220,36 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
     }
 
     @Override
-    public Set<String[]> getRequiredImports(SourceBuilder sourceBuilder) {
-        Set<String[]> imports = new HashSet<>();
-        imports.add(new String[]{"ballerina", "email"});
-        return imports;
+    public List<Import> getRequiredImports(SourceBuilder sourceBuilder) {
+        return List.of(new Import("ballerina", "email"));
+    }
+
+    @Override
+    public List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
+        Map<String, Property> props = sourceBuilder.flowNode.properties();
+        List<String> args = new ArrayList<>();
+        addArg(args, HOST_KEY, "host", props);
+        addArg(args, PORT_KEY, "port", props);
+        addArg(args, SMTP_USERNAME_KEY, "smtpUsername", props);
+        addArg(args, SMTP_PASSWORD_KEY, "smtpPassword", props);
+        addArg(args, TO_KEY, "toAddress", props);
+        addArg(args, SUBJECT_KEY, "subject", props);
+        addArg(args, BODY_KEY, "body", props);
+        addArg(args, FROM_KEY, "fromAddress", props);
+        addArg(args, CC_KEY, "cc", props);
+        addArg(args, BCC_KEY, "bcc", props);
+        return args;
+    }
+
+    private void addArg(List<String> args, String propKey, String paramName,
+                        Map<String, Property> properties) {
+        if (properties == null) {
+            return;
+        }
+        Property prop = properties.get(propKey);
+        if (prop != null && prop.value() != null && !prop.value().toString().isEmpty()) {
+            args.add(paramName + ": " + prop.value());
+        }
     }
 
     @Override

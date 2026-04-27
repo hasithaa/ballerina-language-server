@@ -22,10 +22,8 @@ import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Defines the contract for builtin activity types (REST, SOAP, Email).
@@ -34,6 +32,14 @@ import java.util.Set;
  * @since 1.8.0
  */
 public interface BuiltinActivityStrategy {
+
+    /**
+     * Represents a Ballerina import (org and module pair).
+     *
+     * @param org    the organisation (e.g. "ballerina")
+     * @param module the module name (e.g. "http")
+     */
+    record Import(String org, String module) {}
 
     /**
      * Sets the form fields for this activity type using the fluent PropertiesBuilder API.
@@ -86,9 +92,9 @@ public interface BuiltinActivityStrategy {
      * Returns the import statements required by this activity type.
      *
      * @param sourceBuilder the source builder
-     * @return set of imports as "org/module" strings
+     * @return list of imports required by this activity
      */
-    Set<String[]> getRequiredImports(SourceBuilder sourceBuilder);
+    List<Import> getRequiredImports(SourceBuilder sourceBuilder);
 
     /**
      * Returns the default function name prefix for this activity type.
@@ -137,29 +143,14 @@ public interface BuiltinActivityStrategy {
 
     /**
      * Builds the argument entries for the call activity invocation.
-     * Override this when properties are nested inside dynamicFormFields.
-     * Return null to use the default argument building logic.
+     * Strategies should override this to return the named argument list built from
+     * their own known parameter keys and the node properties — rather than re-parsing
+     * the formatted string from {@link #getActivityFunctionParams}.
      *
      * @param sourceBuilder the source builder
-     * @return list of argument entries (e.g., "url: \"https://...\""), or null for default behavior
+     * @return list of argument entries (e.g. {@code "url: \"https://...\""})
      */
     default List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
-        List<String> args = new ArrayList<>();
-        String params = getActivityFunctionParams(sourceBuilder);
-        if (params.isEmpty()) {
-            return args;
-        }
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        if (properties == null) {
-            return args;
-        }
-        for (String param : params.split(",")) {
-            String paramName = param.trim().split("\\s+")[1];
-            Property prop = properties.get(paramName);
-            if (prop != null && prop.value() != null && !prop.value().toString().isEmpty()) {
-                args.add(paramName + ": " + prop.value());
-            }
-        }
-        return args;
+        return List.of();
     }
 }

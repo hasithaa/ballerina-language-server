@@ -493,48 +493,21 @@ public class AvailableNodesGenerator {
 
     private List<Item> getBuiltinActivityNodes() {
         List<Item> builtinNodes = new ArrayList<>();
-
-        AvailableNode restActivity = new AvailableNode(
-                new Metadata.Builder<>(null)
-                        .label(Workflow.BUILTIN_REST_LABEL)
-                        .description(Workflow.BUILTIN_REST_DESCRIPTION)
-                        .build(),
-                new Codedata.Builder<>(null)
-                        .node(NodeKind.BUILTIN_ACTIVITY)
-                        .symbol(Workflow.BUILTIN_REST_SYMBOL)
-                        .build(),
-                true
-        );
-
-        AvailableNode soapActivity = new AvailableNode(
-                new Metadata.Builder<>(null)
-                        .label(Workflow.BUILTIN_SOAP_LABEL)
-                        .description(Workflow.BUILTIN_SOAP_DESCRIPTION)
-                        .build(),
-                new Codedata.Builder<>(null)
-                        .node(NodeKind.BUILTIN_ACTIVITY)
-                        .symbol(Workflow.BUILTIN_SOAP_SYMBOL)
-                        .build(),
-                true
-        );
-
-        AvailableNode emailActivity = new AvailableNode(
-                new Metadata.Builder<>(null)
-                        .label(Workflow.BUILTIN_EMAIL_LABEL)
-                        .description(Workflow.BUILTIN_EMAIL_DESCRIPTION)
-                        .build(),
-                new Codedata.Builder<>(null)
-                        .node(NodeKind.BUILTIN_ACTIVITY)
-                        .symbol(Workflow.BUILTIN_EMAIL_SYMBOL)
-                        .build(),
-                true
-        );
-
-        builtinNodes.add(restActivity);
-        builtinNodes.add(soapActivity);
-        builtinNodes.add(emailActivity);
-
+        builtinNodes.add(buildBuiltinNode(
+                Workflow.BUILTIN_REST_LABEL, Workflow.BUILTIN_REST_DESCRIPTION, Workflow.BUILTIN_REST_SYMBOL));
+        builtinNodes.add(buildBuiltinNode(
+                Workflow.BUILTIN_SOAP_LABEL, Workflow.BUILTIN_SOAP_DESCRIPTION, Workflow.BUILTIN_SOAP_SYMBOL));
+        builtinNodes.add(buildBuiltinNode(
+                Workflow.BUILTIN_EMAIL_LABEL, Workflow.BUILTIN_EMAIL_DESCRIPTION, Workflow.BUILTIN_EMAIL_SYMBOL));
         return builtinNodes;
+    }
+
+    private AvailableNode buildBuiltinNode(String label, String description, String symbol) {
+        return new AvailableNode(
+                new Metadata.Builder<>(null).label(label).description(description).build(),
+                new Codedata.Builder<>(null).node(NodeKind.BUILTIN_ACTIVITY).symbol(symbol).build(),
+                true
+        );
     }
 
     private void setStopNode(NonTerminalNode node) {
