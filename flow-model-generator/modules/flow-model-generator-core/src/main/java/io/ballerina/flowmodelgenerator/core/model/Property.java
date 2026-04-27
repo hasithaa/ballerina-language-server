@@ -439,13 +439,13 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
             }
             if (original.diagnostics() != null) {
                 builder.diagnosticsBuilder = new Diagnostics.Builder<>(builder);
+                if (original.diagnostics().diagnostics() != null) {
+                    builder.diagnosticsBuilder.diagnostics(original.diagnostics().diagnostics());
+                }
             }
             if (original.codedata() != null) {
                 builder.codedataBuilder = new PropertyCodedata.Builder<>(builder);
-                builder.codedataBuilder.kind(original.codedata().kind())
-                        .originalName(original.codedata().originalName())
-                        .dependentProperty(original.codedata().dependentProperty())
-                        .lineRange(original.codedata().lineRange());
+                builder.codedataBuilder.copyFrom(original.codedata());
             }
             return builder;
         }
