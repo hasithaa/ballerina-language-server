@@ -412,7 +412,20 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
         public static Builder<Object> copyFrom(Property original) {
             Builder<Object> builder = new Builder<>(null);
             if (original.types() != null) {
-                builder.types.addAll(original.types());
+                // Deep-copy each PropertyType so mutations on the copy (e.g. toggling
+                // {@code selected}) do not bleed into the source/template instance.
+                for (PropertyType type : original.types()) {
+                    builder.types.add(new PropertyType(
+                            type.fieldType(),
+                            type.ballerinaType(),
+                            type.scope(),
+                            type.options(),
+                            type.template(),
+                            type.typeMembers(),
+                            type.recordSelectorType(),
+                            type.selected()
+                    ));
+                }
             }
             builder.value = original.value();
             builder.oldValue = original.oldValue();

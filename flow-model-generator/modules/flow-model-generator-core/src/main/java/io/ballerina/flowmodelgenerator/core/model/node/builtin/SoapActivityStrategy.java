@@ -130,13 +130,17 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(SOAP_VERSION_KEY);
 
-        // Hidden top-level action property (for form value storage and code generation)
+        // Hidden top-level action property (for form value storage and code generation).
+        // Mirrors the dynamic Action sub-property schema (TEXT + EXPRESSION) so the
+        // selected type is preserved and getCallActivityArgs can correctly detect
+        // expression-mode actions and skip quoting.
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Action")
                     .description("SOAPAction header value")
                     .stepOut()
                 .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
                 .value("")
                 .editable(true)
                 .optional(true)
