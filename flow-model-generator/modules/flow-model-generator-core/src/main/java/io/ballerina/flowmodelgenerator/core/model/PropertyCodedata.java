@@ -63,6 +63,25 @@ public record PropertyCodedata(String kind, String originalName, String dependen
             return this;
         }
 
+        /**
+         * Copies all fields from the given {@link PropertyCodedata} into this builder.
+         * Centralises field-by-field copy logic so callers don't need to update when new
+         * components are added to {@link PropertyCodedata}.
+         *
+         * @param source the source codedata to copy from (no-op when {@code null})
+         * @return this builder
+         */
+        public Builder<T> copyFrom(PropertyCodedata source) {
+            if (source == null) {
+                return this;
+            }
+            this.kind = source.kind();
+            this.originalName = source.originalName();
+            this.dependentProperty = source.dependentProperty();
+            this.lineRange = source.lineRange();
+            return this;
+        }
+
         public PropertyCodedata build() {
             return new PropertyCodedata(kind, originalName, dependentProperty, lineRange);
         }
