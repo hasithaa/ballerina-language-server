@@ -400,8 +400,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String getDescription() {
-        return "Call a SOAP web service. Looking for more features?"
-                + " Save and Edit Activity for more options.";
+        return "Create a new workflow activity to call a SOAP web service.";
     }
 
     private String getPropertyValue(Map<String, Property> properties, String key, String defaultValue) {

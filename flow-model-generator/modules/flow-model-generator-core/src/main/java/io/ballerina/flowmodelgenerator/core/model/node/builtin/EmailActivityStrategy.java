@@ -23,7 +23,6 @@ import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
@@ -54,7 +53,8 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("SMTP Host")
-                    .description("SMTP server address (e.g., smtp.gmail.com). Stored as a Configurable variable.")
+                    .description("SMTP server address (e.g., smtp.gmail.com). "
+                            + "Tip: use the expression helper to make this configurable.")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
@@ -67,7 +67,8 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("SMTP Port")
-                    .description("SMTP port (465 for SSL, 587 for TLS). Stored as a Configurable variable.")
+                    .description("SMTP port (465 for SSL, 587 for TLS). "
+                            + "Tip: use the expression helper to make this configurable.")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("int").selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
@@ -80,7 +81,8 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Username")
-                    .description("SMTP username (email address). Stored as a Configurable variable.")
+                    .description("SMTP username (email address). "
+                            + "Tip: use the expression helper to make this configurable.")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
@@ -93,7 +95,8 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Password")
-                    .description("SMTP password or app password. Stored as a Configurable variable.")
+                    .description("SMTP password or app password. "
+                            + "Tip: use the expression helper to make this configurable.")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
@@ -224,12 +227,11 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String getLabel() {
-        return "Send Email";
+        return "Send Email (SMTP)";
     }
 
     @Override
     public String getDescription() {
-        return "Send an email via SMTP. Looking for more features?"
-                + " Save and Edit Activity for more options.";
+        return "Create a new workflow activity to send an email via SMTP.";
     }
 }

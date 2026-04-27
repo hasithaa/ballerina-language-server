@@ -67,8 +67,8 @@ import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilde
  */
 public class BuiltinActivityBuilder extends NodeBuilder {
 
-    public static final String LABEL = "Builtin Activity";
-    public static final String DESCRIPTION = "Pre-curated activity for common integrations";
+    public static final String LABEL = "Workflow Activity";
+    public static final String DESCRIPTION = "Create a new workflow activity for common integrations";
 
     // Property keys used by the form
     public static final String ACTIVITY_NAME_KEY = "activityName";
@@ -82,9 +82,16 @@ public class BuiltinActivityBuilder extends NodeBuilder {
         put("EMAIL", new EmailActivityStrategy());
     }};
 
+    // Cached strategy for the current template instance — used so setConcreteConstData()
+    // can re-apply the strategy-specific label/description on build() (which re-invokes
+    // setConcreteConstData() and would otherwise reset them to the generic constants).
+    private BuiltinActivityStrategy resolvedStrategy;
+
     @Override
     public void setConcreteConstData() {
-        metadata().label(LABEL).description(DESCRIPTION);
+        String label = resolvedStrategy != null ? resolvedStrategy.getLabel() : LABEL;
+        String description = resolvedStrategy != null ? resolvedStrategy.getDescription() : DESCRIPTION;
+        metadata().label(label).description(description);
         codedata().node(NodeKind.BUILTIN_ACTIVITY)
                 .org(WORKFLOW_ORG)
                 .module(WORKFLOW_MODULE);
@@ -96,6 +103,7 @@ public class BuiltinActivityBuilder extends NodeBuilder {
         codedata().symbol(context.codedata().symbol());
 
         BuiltinActivityStrategy strategy = resolveStrategy(context.codedata());
+        this.resolvedStrategy = strategy;
 
         metadata().label(strategy.getLabel()).description(strategy.getDescription());
 
@@ -197,6 +205,14 @@ public class BuiltinActivityBuilder extends NodeBuilder {
         }
         SemanticModel semanticModel = FileSystemUtils.getSemanticModel(sourceBuilder.workspaceManager,
                 sourceBuilder.filePath);
+
+        // Validate activity name uniqueness against module-level symbols
+        boolean nameTaken = semanticModel.moduleSymbols().stream()
+                .anyMatch(s -> s.getName().map(activityName::equals).orElse(false));
+        if (nameTaken) {
+            throw new IllegalStateException("Activity name '" + activityName
+                    + "' already exists. Please choose a unique name.");
+        }
 
         FunctionDefinitionNode functionNode = WorkflowUtil.findEnclosingWorkflowFunction(sourceBuilder);
         if (functionNode == null) {
