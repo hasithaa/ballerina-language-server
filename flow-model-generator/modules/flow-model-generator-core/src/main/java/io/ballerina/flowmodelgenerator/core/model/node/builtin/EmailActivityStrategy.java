@@ -110,9 +110,9 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("To")
-                    .description("Recipient email address(es)")
+                    .description("Recipient email addresses (one or more)")
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string[]").selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
                 .value("")
                 .editable(true)
@@ -164,7 +164,7 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
                     .label("CC")
                     .description("Carbon copy email addresses")
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string[]").selected(true).stepOut()
                 .value("")
                 .editable(true)
                 .optional(true)
@@ -177,7 +177,7 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
                     .label("BCC")
                     .description("Blind carbon copy email addresses")
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string[]").selected(true).stepOut()
                 .value("")
                 .editable(true)
                 .optional(true)
@@ -210,8 +210,8 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
         return "string host, int port, string smtpUsername, string smtpPassword, "
-                + "string toAddress, string subject, string body, "
-                + "string? fromAddress = (), string? cc = (), string? bcc = ()";
+                + "string[] toAddress, string subject, string body, "
+                + "string? fromAddress = (), string[] cc = [], string[] bcc = []";
     }
 
     @Override

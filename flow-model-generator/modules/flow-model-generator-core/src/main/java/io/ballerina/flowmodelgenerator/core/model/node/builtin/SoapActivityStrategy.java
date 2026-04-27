@@ -309,7 +309,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         List<String> args = new ArrayList<>();
 
         // endpointUrl — quote if TEXT-typed
-        addQuotedArg(args, "endpointUrl", properties, ENDPOINT_URL_KEY);
+        BuiltinActivityStrategy.addQuotedArg(args, "endpointUrl", properties, ENDPOINT_URL_KEY);
 
         // soapBody — always an expression, no quoting
         String soapBody = getPropertyValue(properties, BODY_KEY, "");
@@ -318,7 +318,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         }
 
         // action — quote if TEXT-typed
-        addQuotedArg(args, "action", properties, ACTION_KEY);
+        BuiltinActivityStrategy.addQuotedArg(args, "action", properties, ACTION_KEY);
 
         // headers — expression, no quoting
         String headers = getPropertyValue(properties, HEADERS_KEY, "");
@@ -327,7 +327,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         }
 
         // path — quote if TEXT-typed
-        addQuotedArg(args, "path", properties, PATH_KEY);
+        BuiltinActivityStrategy.addQuotedArg(args, "path", properties, PATH_KEY);
 
         // clientConfig — expression, no quoting
         String clientConfig = getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
@@ -336,41 +336,6 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         }
 
         return args;
-    }
-
-    /**
-     * Adds a named argument, quoting the value as a Ballerina string literal when the
-     * property's active type is TEXT (i.e., the user entered plain text, not an expression).
-     */
-    private void addQuotedArg(List<String> args, String paramName,
-                               Map<String, Property> properties, String propKey) {
-        if (properties == null) {
-            return;
-        }
-        Property prop = properties.get(propKey);
-        if (prop == null || prop.value() == null || prop.value().toString().isEmpty()) {
-            return;
-        }
-        String value = prop.value().toString();
-        if (isTextSelected(prop)) {
-            value = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-        }
-        args.add(paramName + ": " + value);
-    }
-
-    /**
-     * Returns true when the currently-selected type for the property is TEXT
-     * (meaning the raw user input must be wrapped in Ballerina string quotes).
-     */
-    private boolean isTextSelected(Property prop) {
-        if (prop.types() == null) {
-            return false;
-        }
-        return prop.types().stream()
-                .filter(io.ballerina.flowmodelgenerator.core.model.PropertyType::selected)
-                .findFirst()
-                .map(t -> t.fieldType() == Property.ValueType.TEXT)
-                .orElse(false);
     }
 
     @Override

@@ -267,11 +267,8 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
         List<String> args = new ArrayList<>();
 
-        // url — top-level property
-        String url = getPropertyValue(properties, URL_KEY, "");
-        if (!url.isEmpty()) {
-            args.add("url: " + url);
-        }
+        // url — quote if TEXT-typed
+        BuiltinActivityStrategy.addQuotedArg(args, "url", properties, URL_KEY);
 
         // payload — top-level property (only for POST/PUT/PATCH)
         if (isPayloadMethod(method)) {

@@ -20,9 +20,11 @@ package io.ballerina.flowmodelgenerator.core.model.node.builtin;
 
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.Property;
+import io.ballerina.flowmodelgenerator.core.model.PropertyType;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Defines the contract for builtin activity types (REST, SOAP, Email).
@@ -152,5 +154,43 @@ public interface BuiltinActivityStrategy {
      */
     default List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
         return List.of();
+    }
+
+    /**
+     * Adds a named argument to {@code args}, quoting the value as a Ballerina string literal
+     * when the property's currently-selected type is {@link Property.ValueType#TEXT}
+     * (i.e., the user entered plain text, not an expression). Skips when the property is
+     * missing or its value is empty.
+     */
+    static void addQuotedArg(List<String> args, String paramName,
+                             Map<String, Property> properties, String propKey) {
+        if (properties == null) {
+            return;
+        }
+        Property prop = properties.get(propKey);
+        if (prop == null || prop.value() == null || prop.value().toString().isEmpty()) {
+            return;
+        }
+        String value = prop.value().toString();
+        if (isTextSelected(prop)) {
+            value = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        }
+        args.add(paramName + ": " + value);
+    }
+
+    /**
+     * Returns {@code true} when the currently-selected type for the given property is
+     * {@link Property.ValueType#TEXT} — meaning the raw user input must be wrapped in
+     * Ballerina string quotes when emitted as source.
+     */
+    static boolean isTextSelected(Property prop) {
+        if (prop == null || prop.types() == null) {
+            return false;
+        }
+        return prop.types().stream()
+                .filter(PropertyType::selected)
+                .findFirst()
+                .map(t -> t.fieldType() == Property.ValueType.TEXT)
+                .orElse(false);
     }
 }
