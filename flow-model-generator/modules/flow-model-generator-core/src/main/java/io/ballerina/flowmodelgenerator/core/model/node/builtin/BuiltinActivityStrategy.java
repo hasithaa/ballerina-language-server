@@ -116,6 +116,18 @@ public interface BuiltinActivityStrategy {
     }
 
     /**
+     * Whether this strategy should add post-properties to the form.
+     *
+     * <p>Post-properties typically include the return type and result variable fields.
+     * Strategies that only return {@code error?} can disable these fields.</p>
+     *
+     * @return {@code true} if post-properties should be added, {@code false} otherwise
+     */
+    default boolean shouldAddPostProperties() {
+        return true;
+    }
+
+    /**
      * Sets the post-strategy form properties (return type, variable name, etc.).
      * Override this to customize the form layout for return type and variable name.
      * Default implementation adds Return Type and Result Variable Name fields.
@@ -124,6 +136,9 @@ public interface BuiltinActivityStrategy {
      * @param context     the template context for resolving symbols
      */
     default void setPostProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
+        if (!shouldAddPostProperties()) {
+            return;
+        }
         nodeBuilder.properties().returnType(getDefaultFormReturnType(), null, false);
         nodeBuilder.properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
                 Property.RESULT_NAME, Property.RESULT_DOC, false);
