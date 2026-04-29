@@ -48,47 +48,47 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
     public static final String CC_KEY = "cc";
     public static final String BCC_KEY = "bcc";
 
-        private static final String STRING_TYPE = "string";
-        private static final String STRING_ARRAY_TYPE = "string[]";
-        private static final String INT_TYPE = "int";
-        private static final String EMPTY_VALUE = "";
-        private static final String DEFAULT_SMTP_PORT = "587";
+    private static final String STRING_TYPE = "string";
+    private static final String STRING_ARRAY_TYPE = "string[]";
+    private static final String INT_TYPE = "int";
+    private static final String EMPTY_VALUE = "";
+    private static final String DEFAULT_SMTP_PORT = "587";
 
-        private static final String SMTP_HOST_LABEL = "SMTP Host";
-        private static final String SMTP_HOST_DESCRIPTION = "SMTP server address (e.g., smtp.gmail.com). "
+    private static final String SMTP_HOST_LABEL = "SMTP Host";
+    private static final String SMTP_HOST_DESCRIPTION = "SMTP server address (e.g., smtp.gmail.com). "
             + "Tip: use the expression helper to make this configurable.";
-        private static final String SMTP_PORT_LABEL = "SMTP Port";
-        private static final String SMTP_PORT_DESCRIPTION = "SMTP port (465 for SSL, 587 for TLS). "
+    private static final String SMTP_PORT_LABEL = "SMTP Port";
+    private static final String SMTP_PORT_DESCRIPTION = "SMTP port (465 for SSL, 587 for TLS). "
             + "Tip: use the expression helper to make this configurable.";
-        private static final String USERNAME_LABEL = "Username";
-        private static final String USERNAME_DESCRIPTION = "SMTP username (email address). "
+    private static final String USERNAME_LABEL = "Username";
+    private static final String USERNAME_DESCRIPTION = "SMTP username (email address). "
             + "Tip: use the expression helper to make this configurable.";
-        private static final String PASSWORD_LABEL = "Password";
-        private static final String PASSWORD_DESCRIPTION = "SMTP password or app password. "
+    private static final String PASSWORD_LABEL = "Password";
+    private static final String PASSWORD_DESCRIPTION = "SMTP password or app password. "
             + "Tip: use the expression helper to make this configurable.";
-        private static final String TO_LABEL = "To";
-        private static final String TO_DESCRIPTION = "Recipient email addresses (one or more)";
-        private static final String SUBJECT_LABEL = "Subject";
-        private static final String SUBJECT_DESCRIPTION = "Email subject line";
-        private static final String BODY_LABEL = "Body";
-        private static final String BODY_DESCRIPTION = "Email message content";
-        private static final String FROM_LABEL = "From";
-        private static final String FROM_DESCRIPTION = "Sender email address (often matches username)";
-        private static final String CC_LABEL = "CC";
-        private static final String CC_DESCRIPTION = "Carbon copy email addresses";
-        private static final String BCC_LABEL = "BCC";
-        private static final String BCC_DESCRIPTION = "Blind carbon copy email addresses";
+    private static final String TO_LABEL = "To";
+    private static final String TO_DESCRIPTION = "Recipient email addresses (one or more)";
+    private static final String SUBJECT_LABEL = "Subject";
+    private static final String SUBJECT_DESCRIPTION = "Email subject line";
+    private static final String BODY_LABEL = "Body";
+    private static final String BODY_DESCRIPTION = "Email message content";
+    private static final String FROM_LABEL = "From";
+    private static final String FROM_DESCRIPTION = "Sender email address (often matches username)";
+    private static final String CC_LABEL = "CC";
+    private static final String CC_DESCRIPTION = "Carbon copy email addresses";
+    private static final String BCC_LABEL = "BCC";
+    private static final String BCC_DESCRIPTION = "Blind carbon copy email addresses";
 
-        private static final String EMAIL_PARAMS = "string host, int port, string smtpUsername, string smtpPassword, "
+    private static final String EMAIL_PARAMS = "string host, int port, string smtpUsername, string smtpPassword, "
             + "string[] toAddress, string subject, string body, "
             + "string? fromAddress = (), string[] cc = [], string[] bcc = []";
-        private static final String EMAIL_RETURN_TYPE = "error?";
-        private static final String DEFAULT_FUNCTION_NAME_PREFIX = "sendEmail";
-        private static final String STRATEGY_LABEL = "Send Email (SMTP)";
-        private static final String STRATEGY_DESCRIPTION =
+    private static final String EMAIL_RETURN_TYPE = "error?";
+    private static final String DEFAULT_FUNCTION_NAME_PREFIX = "sendEmail";
+    private static final String STRATEGY_LABEL = "Send Email (SMTP)";
+    private static final String STRATEGY_DESCRIPTION =
             "Create a new workflow activity to send an email via SMTP.";
-        private static final String EMAIL_IMPORT_ORG = "ballerina";
-        private static final String EMAIL_IMPORT_MODULE = "email";
+    private static final String EMAIL_IMPORT_ORG = "ballerina";
+    private static final String EMAIL_IMPORT_MODULE = "email";
 
     @Override
     public void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
