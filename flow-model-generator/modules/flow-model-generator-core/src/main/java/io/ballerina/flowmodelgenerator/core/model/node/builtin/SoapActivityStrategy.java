@@ -56,10 +56,10 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     // Operation options
     private static final String OP_SEND_RECEIVE = "SendReceive";
     private static final String OP_SEND_ONLY = "SendOnly";
-        private static final String RETURN_TYPE_XML_WITH_ERROR = "xml|error";
-        private static final String RETURN_TYPE_ERROR_OPTIONAL = "error?";
-        private static final String STRATEGY_LABEL = "Call SOAP API";
-        private static final String STRATEGY_DESCRIPTION =
+    private static final String RETURN_TYPE_XML_WITH_ERROR = "xml|error";
+    private static final String RETURN_TYPE_ERROR_OPTIONAL = "error?";
+    private static final String STRATEGY_LABEL = "Call SOAP API";
+    private static final String STRATEGY_DESCRIPTION =
             "Create a new workflow activity to call a SOAP web service.";
 
     @Override
@@ -232,8 +232,8 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String generateActivityFunctionBody(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String soapVersion = getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
-        String operation = getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
+        String soapVersion = BuiltinActivityStrategy.getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
+        String operation = BuiltinActivityStrategy.getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
 
         String clientModule = SOAP_12.equals(soapVersion) ? "soap12" : "soap11";
         boolean isSendOnly = OP_SEND_ONLY.equals(operation);
@@ -241,7 +241,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         StringBuilder body = new StringBuilder();
 
         // Create SOAP client
-        String clientConfig = getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
+        String clientConfig = BuiltinActivityStrategy.getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
         body.append("    ").append(clientModule)
                 .append(":Client soapClient = check new (endpointUrl");
         if (!clientConfig.isEmpty()) {
@@ -260,13 +260,13 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         body.append(", action");
 
         // Headers parameter
-        String headers = getPropertyValue(properties, HEADERS_KEY, "");
+        String headers = BuiltinActivityStrategy.getPropertyValue(properties, HEADERS_KEY, "");
         if (!headers.isEmpty()) {
             body.append(", headers = headers");
         }
 
         // Path parameter
-        String path = getPropertyValue(properties, PATH_KEY, "");
+        String path = BuiltinActivityStrategy.getPropertyValue(properties, PATH_KEY, "");
         if (!path.isEmpty()) {
             body.append(", path = path");
         }
@@ -283,7 +283,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String soapVersion = getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
+        String soapVersion = BuiltinActivityStrategy.getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
         String clientModule = SOAP_12.equals(soapVersion) ? "soap12" : "soap11";
 
         List<String> params = new ArrayList<>();
@@ -300,7 +300,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getActivityReturnType(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String operation = getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
+        String operation = BuiltinActivityStrategy.getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
         if (OP_SEND_ONLY.equals(operation)) {
             return RETURN_TYPE_ERROR_OPTIONAL;
         }
@@ -317,7 +317,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         BuiltinActivityStrategy.addQuotedArg(args, "endpointUrl", properties, ENDPOINT_URL_KEY);
 
         // soapBody — always an expression, no quoting
-        String soapBody = getPropertyValue(properties, BODY_KEY, "");
+        String soapBody = BuiltinActivityStrategy.getPropertyValue(properties, BODY_KEY, "");
         if (!soapBody.isEmpty()) {
             args.add("soapBody: " + soapBody);
         }
@@ -326,7 +326,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         BuiltinActivityStrategy.addQuotedArg(args, "action", properties, ACTION_KEY);
 
         // headers — expression, no quoting
-        String headers = getPropertyValue(properties, HEADERS_KEY, "");
+        String headers = BuiltinActivityStrategy.getPropertyValue(properties, HEADERS_KEY, "");
         if (!headers.isEmpty()) {
             args.add("headers: " + headers);
         }
@@ -335,7 +335,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         BuiltinActivityStrategy.addQuotedArg(args, "path", properties, PATH_KEY);
 
         // clientConfig — expression, no quoting
-        String clientConfig = getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
+        String clientConfig = BuiltinActivityStrategy.getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
         if (!clientConfig.isEmpty()) {
             args.add("clientConfig: " + clientConfig);
         }
@@ -346,7 +346,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public List<Import> getRequiredImports(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String soapVersion = getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
+        String soapVersion = BuiltinActivityStrategy.getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
         if (SOAP_12.equals(soapVersion)) {
             return List.of(new Import("ballerina", "soap.soap12"));
         }
@@ -380,14 +380,4 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         return STRATEGY_DESCRIPTION;
     }
 
-    private String getPropertyValue(Map<String, Property> properties, String key, String defaultValue) {
-        if (properties == null) {
-            return defaultValue;
-        }
-        Property prop = properties.get(key);
-        if (prop != null && prop.value() != null && !prop.value().toString().isEmpty()) {
-            return prop.value().toString();
-        }
-        return defaultValue;
-    }
 }

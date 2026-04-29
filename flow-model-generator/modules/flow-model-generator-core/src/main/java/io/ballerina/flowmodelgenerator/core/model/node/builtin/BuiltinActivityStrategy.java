@@ -208,4 +208,19 @@ public interface BuiltinActivityStrategy {
                 .map(t -> t.fieldType() == Property.ValueType.TEXT)
                 .orElse(false);
     }
+
+    /**
+     * Returns the property value for the provided key, or the provided default value
+     * when the property map/key/value is missing or empty.
+     */
+    static String getPropertyValue(Map<String, Property> properties, String key, String defaultValue) {
+        if (properties == null) {
+            return defaultValue;
+        }
+        Property prop = properties.get(key);
+        if (prop != null && prop.value() != null && !prop.value().toString().isEmpty()) {
+            return prop.value().toString();
+        }
+        return defaultValue;
+    }
 }
