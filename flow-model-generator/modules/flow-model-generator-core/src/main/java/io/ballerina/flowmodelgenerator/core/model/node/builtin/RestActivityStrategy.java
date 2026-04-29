@@ -66,6 +66,14 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                     + "|http:OAuth2ClientCredentialsGrantConfig|http:OAuth2PasswordGrantConfig"
                     + "|http:OAuth2RefreshTokenGrantConfig|http:OAuth2JwtBearerGrantConfig";
 
+        private static final String DEFAULT_RETURN_TYPE = "json";
+        private static final String DATABINDING_LABEL = "Databinding";
+        private static final String DATABINDING_DESCRIPTION =
+            "Response data binding type (e.g., json, xml, record type)";
+        private static final String STRATEGY_LABEL = "Call REST API";
+        private static final String STRATEGY_DESCRIPTION =
+            "Create a new workflow activity to call a REST API endpoint.";
+
     private static final List<PropertyTypeMemberInfo> AUTH_TYPE_MEMBERS = List.of(
             new PropertyTypeMemberInfo("CredentialsConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
                     RECORD_TYPE_KIND, false),
@@ -201,7 +209,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     public String generateActivityFunctionBody(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
         String method = getPropertyValue(properties, METHOD_KEY, METHOD_GET);
-        String returnType = getPropertyValue(properties, Property.TYPE_KEY, "json");
+        String returnType = getPropertyValue(properties, Property.TYPE_KEY, DEFAULT_RETURN_TYPE);
 
         boolean hasPayload = isPayloadMethod(method)
                 && !getPropertyValue(properties, PAYLOAD_KEY, "").isEmpty();
@@ -256,7 +264,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getActivityReturnType(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String returnType = getPropertyValue(properties, Property.TYPE_KEY, "json");
+        String returnType = getPropertyValue(properties, Property.TYPE_KEY, DEFAULT_RETURN_TYPE);
         return returnType + "|error";
     }
 
@@ -302,8 +310,8 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
         // Databinding — TYPE field for response data binding (replaces generic "Return Type")
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("Databinding")
-                    .description("Response data binding type (e.g., json, xml, record type)")
+                    .label(DATABINDING_LABEL)
+                    .description(DATABINDING_DESCRIPTION)
                     .stepOut()
                 .value(getDefaultFormReturnType())
                 .type()
@@ -321,12 +329,12 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String getLabel() {
-        return "Call REST API";
+        return STRATEGY_LABEL;
     }
 
     @Override
     public String getDescription() {
-        return "Create a new workflow activity to call a REST API endpoint.";
+        return STRATEGY_DESCRIPTION;
     }
 
     private boolean isPayloadMethod(String method) {

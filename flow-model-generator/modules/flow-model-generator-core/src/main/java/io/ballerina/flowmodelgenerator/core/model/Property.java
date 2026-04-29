@@ -377,10 +377,6 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
 
     public static class Builder<T> extends FacetedBuilder<T> implements DiagnosticHandler.DiagnosticCapable {
 
-        // Tracks type signatures currently being expanded in typeWithExpression on this thread.
-        // Prevents infinite recursion for self-referential types.
-        private static final ThreadLocal<Set<String>> EXPANDING_TYPES = ThreadLocal.withInitial(java.util.HashSet::new);
-
         private List<PropertyType> types = new ArrayList<>();
         private Object value;
         private Object oldValue;
@@ -412,20 +408,7 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
         public static Builder<Object> copyFrom(Property original) {
             Builder<Object> builder = new Builder<>(null);
             if (original.types() != null) {
-                // Deep-copy each PropertyType so mutations on the copy (e.g. toggling
-                // {@code selected}) do not bleed into the source/template instance.
-                for (PropertyType type : original.types()) {
-                    builder.types.add(new PropertyType(
-                            type.fieldType(),
-                            type.ballerinaType(),
-                            type.scope(),
-                            type.options(),
-                            type.template(),
-                            type.typeMembers(),
-                            type.recordSelectorType(),
-                            type.selected()
-                    ));
-                }
+                builder.types.addAll(original.types());
             }
             builder.value = original.value();
             builder.oldValue = original.oldValue();
@@ -760,27 +743,6 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
             }
             String ballerinaType = CommonUtils.getTypeSignature(typeSymbol, moduleInfo);
 
-            // Short-circuit self-referential types
-            Set<String> expanding = EXPANDING_TYPES.get();
-            if (!expanding.add(ballerinaType)) {
-                builder.type().fieldType(ValueType.EXPRESSION).ballerinaType(ballerinaType).stepOut();
-                return this;
-            }
-            try {
-                return typeWithExpressionInner(typeSymbol, moduleInfo, value, semanticModel, defaultValue,
-                        builder, diagnosticHandler, ballerinaType);
-            } finally {
-                expanding.remove(ballerinaType);
-                if (expanding.isEmpty()) {
-                    EXPANDING_TYPES.remove();
-                }
-            }
-        }
-
-        private Builder<T> typeWithExpressionInner(TypeSymbol typeSymbol, ModuleInfo moduleInfo,
-                                                   Node value, SemanticModel semanticModel, String defaultValue,
-                                                   Property.Builder<?> builder,
-                                                   DiagnosticHandler diagnosticHandler, String ballerinaType) {
             // Handle the primitive input types
             boolean success = handlePrimitiveType(typeSymbol, ballerinaType, semanticModel, moduleInfo, builder);
 
@@ -807,7 +769,7 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                     if (defaultValue != null && !defaultValue.isEmpty()) {
                         options = reorderOptionsByDefaultValue(options, defaultValue);
                     }
-                    builder.type().fieldType(ValueType.SINGLE_SELECT).options(options).stepOut();
+                    type().fieldType(ValueType.SINGLE_SELECT).options(options).stepOut();
                 } else {
                     // Handle union of primitive types by defining an input type for each primitive type
                     for (TypeSymbol ts : typeSymbols) {
@@ -1084,23 +1046,21 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
             // Find the matching type symbol that is a subtype of the parameter type.
             // When the inferred type is unavailable or a compilation error, skip the subtype check
             // and use the declared type directly.
-            TypeSymbol matchedMapType = null;
             if (paramType.isPresent()
                     && paramType.get().typeKind() != TypeDescKind.COMPILATION_ERROR) {
                 TypeSymbol actualParamType = paramType.get();
-                matchedMapType = candidateMapTypes.stream()
+                TypeSymbol matchingType = candidateMapTypes.stream()
                         .filter(candidate -> candidate.subtypeOf(actualParamType))
                         .findFirst()
                         .orElse(null);
-                if (matchedMapType == null) {
+                if (matchingType == null) {
                     return;
                 }
             } else if (candidateMapTypes.isEmpty()) {
                 return;
             }
 
-            String ballerinaType = CommonUtils.getTypeSignature(matchedMapType != null ? matchedMapType : typeSymbol
-                    , moduleInfo);
+            String ballerinaType = CommonUtils.getTypeSignature(typeSymbol, moduleInfo);
 
             // Find and update the matching property type
             builder.types.stream()

@@ -56,6 +56,11 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     // Operation options
     private static final String OP_SEND_RECEIVE = "SendReceive";
     private static final String OP_SEND_ONLY = "SendOnly";
+        private static final String RETURN_TYPE_XML_WITH_ERROR = "xml|error";
+        private static final String RETURN_TYPE_ERROR_OPTIONAL = "error?";
+        private static final String STRATEGY_LABEL = "Call SOAP API";
+        private static final String STRATEGY_DESCRIPTION =
+            "Create a new workflow activity to call a SOAP web service.";
 
     @Override
     public void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
@@ -130,17 +135,13 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(SOAP_VERSION_KEY);
 
-        // Hidden top-level action property (for form value storage and code generation).
-        // Mirrors the dynamic Action sub-property schema (TEXT + EXPRESSION) so the
-        // selected type is preserved and getCallActivityArgs can correctly detect
-        // expression-mode actions and skip quoting.
+        // Hidden top-level action property (for form value storage and code generation)
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Action")
                     .description("SOAPAction header value")
                     .stepOut()
                 .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
                 .value("")
                 .editable(true)
                 .optional(true)
@@ -301,9 +302,9 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
         String operation = getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
         if (OP_SEND_ONLY.equals(operation)) {
-            return "error?";
+            return RETURN_TYPE_ERROR_OPTIONAL;
         }
-        return "xml|error";
+        return RETURN_TYPE_XML_WITH_ERROR;
     }
 
     @Override
@@ -371,12 +372,12 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String getLabel() {
-        return "Call SOAP API";
+        return STRATEGY_LABEL;
     }
 
     @Override
     public String getDescription() {
-        return "Create a new workflow activity to call a SOAP web service.";
+        return STRATEGY_DESCRIPTION;
     }
 
     private String getPropertyValue(Map<String, Property> properties, String key, String defaultValue) {
