@@ -48,18 +48,59 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
     public static final String CC_KEY = "cc";
     public static final String BCC_KEY = "bcc";
 
+        private static final String STRING_TYPE = "string";
+        private static final String STRING_ARRAY_TYPE = "string[]";
+        private static final String INT_TYPE = "int";
+        private static final String EMPTY_VALUE = "";
+        private static final String DEFAULT_SMTP_PORT = "587";
+
+        private static final String SMTP_HOST_LABEL = "SMTP Host";
+        private static final String SMTP_HOST_DESCRIPTION = "SMTP server address (e.g., smtp.gmail.com). "
+            + "Tip: use the expression helper to make this configurable.";
+        private static final String SMTP_PORT_LABEL = "SMTP Port";
+        private static final String SMTP_PORT_DESCRIPTION = "SMTP port (465 for SSL, 587 for TLS). "
+            + "Tip: use the expression helper to make this configurable.";
+        private static final String USERNAME_LABEL = "Username";
+        private static final String USERNAME_DESCRIPTION = "SMTP username (email address). "
+            + "Tip: use the expression helper to make this configurable.";
+        private static final String PASSWORD_LABEL = "Password";
+        private static final String PASSWORD_DESCRIPTION = "SMTP password or app password. "
+            + "Tip: use the expression helper to make this configurable.";
+        private static final String TO_LABEL = "To";
+        private static final String TO_DESCRIPTION = "Recipient email addresses (one or more)";
+        private static final String SUBJECT_LABEL = "Subject";
+        private static final String SUBJECT_DESCRIPTION = "Email subject line";
+        private static final String BODY_LABEL = "Body";
+        private static final String BODY_DESCRIPTION = "Email message content";
+        private static final String FROM_LABEL = "From";
+        private static final String FROM_DESCRIPTION = "Sender email address (often matches username)";
+        private static final String CC_LABEL = "CC";
+        private static final String CC_DESCRIPTION = "Carbon copy email addresses";
+        private static final String BCC_LABEL = "BCC";
+        private static final String BCC_DESCRIPTION = "Blind carbon copy email addresses";
+
+        private static final String EMAIL_PARAMS = "string host, int port, string smtpUsername, string smtpPassword, "
+            + "string[] toAddress, string subject, string body, "
+            + "string? fromAddress = (), string[] cc = [], string[] bcc = []";
+        private static final String EMAIL_RETURN_TYPE = "error?";
+        private static final String DEFAULT_FUNCTION_NAME_PREFIX = "sendEmail";
+        private static final String STRATEGY_LABEL = "Send Email (SMTP)";
+        private static final String STRATEGY_DESCRIPTION =
+            "Create a new workflow activity to send an email via SMTP.";
+        private static final String EMAIL_IMPORT_ORG = "ballerina";
+        private static final String EMAIL_IMPORT_MODULE = "email";
+
     @Override
     public void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
         // SMTP Host
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("SMTP Host")
-                    .description("SMTP server address (e.g., smtp.gmail.com). "
-                            + "Tip: use the expression helper to make this configurable.")
+                .label(SMTP_HOST_LABEL)
+                .description(SMTP_HOST_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+            .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_TYPE).selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
+            .value(EMPTY_VALUE)
                 .editable(true)
                 .stepOut()
                 .addProperty(HOST_KEY);
@@ -67,13 +108,12 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // SMTP Port
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("SMTP Port")
-                    .description("SMTP port (465 for SSL, 587 for TLS). "
-                            + "Tip: use the expression helper to make this configurable.")
+                .label(SMTP_PORT_LABEL)
+                .description(SMTP_PORT_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("int").selected(true).stepOut()
+            .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(INT_TYPE).selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
-                .value("587")
+            .value(DEFAULT_SMTP_PORT)
                 .editable(true)
                 .stepOut()
                 .addProperty(PORT_KEY);
@@ -81,13 +121,12 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // SMTP Username
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("Username")
-                    .description("SMTP username (email address). "
-                            + "Tip: use the expression helper to make this configurable.")
+                .label(USERNAME_LABEL)
+                .description(USERNAME_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+            .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_TYPE).selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
+            .value(EMPTY_VALUE)
                 .editable(true)
                 .stepOut()
                 .addProperty(SMTP_USERNAME_KEY);
@@ -95,13 +134,12 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // SMTP Password
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("Password")
-                    .description("SMTP password or app password. "
-                            + "Tip: use the expression helper to make this configurable.")
+                .label(PASSWORD_LABEL)
+                .description(PASSWORD_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+            .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_TYPE).selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
+            .value(EMPTY_VALUE)
                 .editable(true)
                 .stepOut()
                 .addProperty(SMTP_PASSWORD_KEY);
@@ -109,12 +147,13 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // To
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("To")
-                    .description("Recipient email addresses (one or more)")
+                    .label(TO_LABEL)
+                    .description(TO_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string[]").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_ARRAY_TYPE)
+                .selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
+                .value(EMPTY_VALUE)
                 .editable(true)
                 .stepOut()
                 .addProperty(TO_KEY);
@@ -122,12 +161,12 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // Subject
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("Subject")
-                    .description("Email subject line")
+                    .label(SUBJECT_LABEL)
+                    .description(SUBJECT_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_TYPE).selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
+                .value(EMPTY_VALUE)
                 .editable(true)
                 .stepOut()
                 .addProperty(SUBJECT_KEY);
@@ -135,12 +174,12 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // Body
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("Body")
-                    .description("Email message content")
+                    .label(BODY_LABEL)
+                    .description(BODY_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_TYPE).selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
+                .value(EMPTY_VALUE)
                 .editable(true)
                 .stepOut()
                 .addProperty(BODY_KEY);
@@ -148,11 +187,11 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // From (optional, often matches username)
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("From")
-                    .description("Sender email address (often matches username)")
+                    .label(FROM_LABEL)
+                    .description(FROM_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(true).stepOut()
-                .value("")
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_TYPE).selected(true).stepOut()
+                .value(EMPTY_VALUE)
                 .editable(true)
                 .optional(true)
                 .stepOut()
@@ -161,11 +200,12 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // CC (optional)
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("CC")
-                    .description("Carbon copy email addresses")
+                    .label(CC_LABEL)
+                    .description(CC_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string[]").selected(true).stepOut()
-                .value("")
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_ARRAY_TYPE)
+                .selected(true).stepOut()
+                .value(EMPTY_VALUE)
                 .editable(true)
                 .optional(true)
                 .stepOut()
@@ -174,11 +214,12 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
         // BCC (optional)
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("BCC")
-                    .description("Blind carbon copy email addresses")
+                    .label(BCC_LABEL)
+                    .description(BCC_DESCRIPTION)
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string[]").selected(true).stepOut()
-                .value("")
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_ARRAY_TYPE)
+                .selected(true).stepOut()
+                .value(EMPTY_VALUE)
                 .editable(true)
                 .optional(true)
                 .stepOut()
@@ -209,19 +250,22 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
-        return "string host, int port, string smtpUsername, string smtpPassword, "
-                + "string[] toAddress, string subject, string body, "
-                + "string? fromAddress = (), string[] cc = [], string[] bcc = []";
+        return EMAIL_PARAMS;
     }
 
     @Override
     public String getActivityReturnType(SourceBuilder sourceBuilder) {
-        return "error?";
+        return EMAIL_RETURN_TYPE;
+    }
+
+    @Override
+    public boolean shouldAddPostProperties() {
+        return false;
     }
 
     @Override
     public List<Import> getRequiredImports(SourceBuilder sourceBuilder) {
-        return List.of(new Import("ballerina", "email"));
+        return List.of(new Import(EMAIL_IMPORT_ORG, EMAIL_IMPORT_MODULE));
     }
 
     @Override
@@ -254,16 +298,16 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public String getDefaultFunctionNamePrefix() {
-        return "sendEmail";
+        return DEFAULT_FUNCTION_NAME_PREFIX;
     }
 
     @Override
     public String getLabel() {
-        return "Send Email (SMTP)";
+        return STRATEGY_LABEL;
     }
 
     @Override
     public String getDescription() {
-        return "Create a new workflow activity to send an email via SMTP.";
+        return STRATEGY_DESCRIPTION;
     }
 }
