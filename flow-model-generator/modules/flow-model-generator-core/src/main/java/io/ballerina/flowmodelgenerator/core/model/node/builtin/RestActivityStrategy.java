@@ -66,12 +66,12 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                     + "|http:OAuth2ClientCredentialsGrantConfig|http:OAuth2PasswordGrantConfig"
                     + "|http:OAuth2RefreshTokenGrantConfig|http:OAuth2JwtBearerGrantConfig";
 
-        private static final String DEFAULT_RETURN_TYPE = "json";
-        private static final String DATABINDING_LABEL = "Databinding";
-        private static final String DATABINDING_DESCRIPTION =
+    private static final String DEFAULT_RETURN_TYPE = "json";
+    private static final String DATABINDING_LABEL = "Databinding";
+    private static final String DATABINDING_DESCRIPTION =
             "Response data binding type (e.g., json, xml, record type)";
-        private static final String STRATEGY_LABEL = "Call REST API";
-        private static final String STRATEGY_DESCRIPTION =
+    private static final String STRATEGY_LABEL = "Call REST API";
+    private static final String STRATEGY_DESCRIPTION =
             "Create a new workflow activity to call a REST API endpoint.";
 
     private static final List<PropertyTypeMemberInfo> AUTH_TYPE_MEMBERS = List.of(
@@ -208,14 +208,15 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String generateActivityFunctionBody(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String method = getPropertyValue(properties, METHOD_KEY, METHOD_GET);
-        String returnType = getPropertyValue(properties, Property.TYPE_KEY, DEFAULT_RETURN_TYPE);
+        String method = BuiltinActivityStrategy.getPropertyValue(properties, METHOD_KEY, METHOD_GET);
+        String returnType = BuiltinActivityStrategy.getPropertyValue(properties, Property.TYPE_KEY,
+            DEFAULT_RETURN_TYPE);
 
         boolean hasPayload = isPayloadMethod(method)
-                && !getPropertyValue(properties, PAYLOAD_KEY, "").isEmpty();
-        boolean hasHeaders = !getPropertyValue(properties, HEADERS_KEY, "").isEmpty();
+                && !BuiltinActivityStrategy.getPropertyValue(properties, PAYLOAD_KEY, "").isEmpty();
+            boolean hasHeaders = !BuiltinActivityStrategy.getPropertyValue(properties, HEADERS_KEY, "").isEmpty();
 
-        String authConfig = getPropertyValue(properties, AUTH_CONFIG_KEY, "");
+            String authConfig = BuiltinActivityStrategy.getPropertyValue(properties, AUTH_CONFIG_KEY, "");
 
         StringBuilder body = new StringBuilder();
 
@@ -245,7 +246,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String method = getPropertyValue(properties, METHOD_KEY, METHOD_GET);
+        String method = BuiltinActivityStrategy.getPropertyValue(properties, METHOD_KEY, METHOD_GET);
 
         List<String> params = new ArrayList<>();
         params.add("string url");
@@ -264,14 +265,15 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String getActivityReturnType(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String returnType = getPropertyValue(properties, Property.TYPE_KEY, DEFAULT_RETURN_TYPE);
+        String returnType = BuiltinActivityStrategy.getPropertyValue(properties, Property.TYPE_KEY,
+            DEFAULT_RETURN_TYPE);
         return returnType + "|error";
     }
 
     @Override
     public List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String method = getPropertyValue(properties, METHOD_KEY, METHOD_GET);
+        String method = BuiltinActivityStrategy.getPropertyValue(properties, METHOD_KEY, METHOD_GET);
 
         List<String> args = new ArrayList<>();
 
@@ -280,14 +282,14 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
         // payload — top-level property (only for POST/PUT/PATCH)
         if (isPayloadMethod(method)) {
-            String payloadValue = getPropertyValue(properties, PAYLOAD_KEY, "");
+            String payloadValue = BuiltinActivityStrategy.getPropertyValue(properties, PAYLOAD_KEY, "");
             if (!payloadValue.isEmpty()) {
                 args.add("payload: " + payloadValue);
             }
         }
 
         // headers — top-level property
-        String headers = getPropertyValue(properties, HEADERS_KEY, "");
+        String headers = BuiltinActivityStrategy.getPropertyValue(properties, HEADERS_KEY, "");
         if (!headers.isEmpty()) {
             args.add("headers: " + headers);
         }
@@ -342,15 +344,5 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 || METHOD_PATCH.equalsIgnoreCase(method);
     }
 
-    private String getPropertyValue(Map<String, Property> properties, String key, String defaultValue) {
-        if (properties == null) {
-            return defaultValue;
-        }
-        Property prop = properties.get(key);
-        if (prop != null && prop.value() != null && !prop.value().toString().isEmpty()) {
-            return prop.value().toString();
-        }
-        return defaultValue;
-    }
 }
 
