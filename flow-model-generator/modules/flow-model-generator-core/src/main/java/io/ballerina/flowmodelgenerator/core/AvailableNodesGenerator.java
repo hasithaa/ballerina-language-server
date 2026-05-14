@@ -505,7 +505,10 @@ public class AvailableNodesGenerator {
     private AvailableNode buildBuiltinNode(String label, String description, String symbol) {
         return new AvailableNode(
                 new Metadata.Builder<>(null).label(label).description(description).build(),
-                new Codedata.Builder<>(null).node(NodeKind.BUILTIN_ACTIVITY).symbol(symbol).build(),
+                new Codedata.Builder<>(null)
+                        .node(NodeKind.BUILTIN_ACTIVITY)
+                        .symbol(symbol)
+                        .build(),
                 true
         );
     }

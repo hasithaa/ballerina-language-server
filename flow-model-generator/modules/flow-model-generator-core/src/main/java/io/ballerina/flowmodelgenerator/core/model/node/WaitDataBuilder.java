@@ -581,7 +581,7 @@ public class WaitDataBuilder extends CallBuilder {
                 dataTypeName,
                 true,
                 new Metadata(dataTypeName, "Data record for workflow function",
-                        null, null, null, null),
+                        null, null, null, null, null),
                 new Codedata.Builder<>(null).node(NodeKind.RECORD).build(),
                 Map.of(),
                 members,

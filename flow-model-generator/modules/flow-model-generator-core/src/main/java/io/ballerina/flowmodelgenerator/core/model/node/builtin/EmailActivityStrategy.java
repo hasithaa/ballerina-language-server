@@ -18,7 +18,10 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node.builtin;
 
+import io.ballerina.flowmodelgenerator.core.model.Codedata;
+import io.ballerina.flowmodelgenerator.core.model.Metadata;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
+import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
@@ -153,6 +156,16 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String searchNodesKind() {
         return "EMAIL";
+    }
+
+    @Override
+    public List<Metadata.AllowedConnector> connectors() {
+        Codedata smtpConnector = new Codedata.Builder<>(null)
+                .node(NodeKind.NEW_CONNECTION)
+                .org(EMAIL_PKG_ORG).module(EMAIL_PKG_MODULE).packageName(EMAIL_PKG_MODULE)
+                .object("SmtpClient").symbol("init")
+                .build();
+        return List.of(new Metadata.AllowedConnector(smtpConnector, "Add new SMTP connection"));
     }
 
     @Override

@@ -29,7 +29,20 @@
       "connection": {
         "metadata": {
           "label": "Connection",
-          "description": "Module-level final client used by this activity. Create one from the Connections view if none is listed."
+          "description": "Connection to use",
+          "connectors": [
+            {
+              "codedata": {
+                "node": "NEW_CONNECTION",
+                "org": "ballerina",
+                "module": "email",
+                "packageName": "email",
+                "object": "SmtpClient",
+                "symbol": "init"
+              },
+              "addNewConnectionLabel": "Add new SMTP connection"
+            }
+          ]
         },
         "types": [
           {
@@ -44,7 +57,6 @@
         "advanced": false,
         "hidden": false,
         "codedata": {
-          "kind": "REQUIRED",
           "searchNodesKind": "EMAIL"
         }
       },

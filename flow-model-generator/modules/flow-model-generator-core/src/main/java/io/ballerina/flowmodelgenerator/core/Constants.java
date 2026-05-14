@@ -103,6 +103,7 @@ public class Constants {
 
         public static final String WORKFLOW_ORG = "ballerina";
         public static final String WORKFLOW_MODULE = "workflow";
+        public static final String ACTIVITY_MODULE = "workflow.activity";
         public static final String CONTEXT_CLASS_NAME = "Context";
         public static final String RUN_METHOD_NAME = "run";
         public static final String RUN_LABEL = "Run Workflow";
@@ -128,12 +129,15 @@ public class Constants {
         public static final String BUILTIN_REST_LABEL = "Call REST API";
         public static final String BUILTIN_REST_DESCRIPTION = "Call a REST API endpoint";
         public static final String BUILTIN_REST_SYMBOL = "REST";
+        public static final String BUILTIN_REST_FUNCTION = "callRestAPI";
         public static final String BUILTIN_SOAP_LABEL = "Call SOAP API";
         public static final String BUILTIN_SOAP_DESCRIPTION = "Call a SOAP web service";
         public static final String BUILTIN_SOAP_SYMBOL = "SOAP";
+        public static final String BUILTIN_SOAP_FUNCTION = "callSoapAPI";
         public static final String BUILTIN_EMAIL_LABEL = "Send Email (SMTP)";
         public static final String BUILTIN_EMAIL_DESCRIPTION = "Send an email via SMTP";
         public static final String BUILTIN_EMAIL_SYMBOL = "EMAIL";
+        public static final String BUILTIN_EMAIL_FUNCTION = "sendEmail";
     }
 
     // Constants used for AI

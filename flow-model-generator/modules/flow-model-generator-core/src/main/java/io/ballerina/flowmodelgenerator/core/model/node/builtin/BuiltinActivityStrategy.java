@@ -18,6 +18,7 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node.builtin;
 
+import io.ballerina.flowmodelgenerator.core.model.Metadata;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.PropertyType;
@@ -85,6 +86,19 @@ public interface BuiltinActivityStrategy {
      * @return the connection category id
      */
     String searchNodesKind();
+
+    /**
+     * Returns the allowed-connector entries for this activity's CONNECTION field. Each
+     * entry pairs a connector codedata (org/module/object/symbol) with the label shown
+     * on its "Add new connection" button. When the user has no compatible connection in
+     * the project, the UI uses these to inline-create one. Returning {@code null} or an
+     * empty list disables the Add button.
+     *
+     * @return list of allowed connectors, or {@code null}
+     */
+    default List<Metadata.AllowedConnector> connectors() {
+        return null;
+    }
 
     /**
      * Returns the Ballerina imports required by the connection type for this activity.

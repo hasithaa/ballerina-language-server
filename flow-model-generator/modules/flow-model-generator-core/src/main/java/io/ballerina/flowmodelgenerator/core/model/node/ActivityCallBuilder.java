@@ -29,9 +29,14 @@ import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.flowmodelgenerator.core.model.Codedata;
 import io.ballerina.flowmodelgenerator.core.model.FlowNode;
+import io.ballerina.flowmodelgenerator.core.model.Metadata;
 import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.builtin.BuiltinActivityStrategy;
+import io.ballerina.flowmodelgenerator.core.model.node.builtin.EmailActivityStrategy;
+import io.ballerina.flowmodelgenerator.core.model.node.builtin.RestActivityStrategy;
+import io.ballerina.flowmodelgenerator.core.model.node.builtin.SoapActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.utils.FileSystemUtils;
 import io.ballerina.flowmodelgenerator.core.utils.WorkflowUtil;
 import io.ballerina.modelgenerator.commons.CommonUtils;
@@ -40,6 +45,7 @@ import io.ballerina.modelgenerator.commons.FunctionDataBuilder;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.ParameterData;
+import io.ballerina.flowmodelgenerator.core.utils.ParamUtils;
 import io.ballerina.projects.Module;
 import io.ballerina.tools.text.LineRange;
 import org.eclipse.lsp4j.Range;
@@ -52,6 +58,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.ACTIVITY_MODULE;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_EMAIL_FUNCTION;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_REST_FUNCTION;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_SOAP_FUNCTION;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.CONTEXT_CLASS_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.DEFAULT_CTX_PARAM_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.WORKFLOW_MODULE;
@@ -74,6 +84,26 @@ public class ActivityCallBuilder extends CallBuilder {
     public static final Set<String> EXCLUDED_CALL_ACTIVITY_PARAMS = Set.of("activityFunction", "args", "T",
             Property.CHECK_ERROR_KEY, Property.CONNECTION_KEY);
 
+    /**
+     * Sentinel placed in the connection property when no connection has been chosen yet.
+     * The UI treats this as "no selection" and surfaces "Add new connection" shortcuts.
+     */
+    private static final String NEW_CONNECTION_SENTINEL = "NEW_CONNECTION";
+
+    /**
+     * Maps builtin activity function symbols (in the {@code workflow.activity} module) to the
+     * strategy that knows which connectors and search-kind to advertise.
+     */
+    private static final Map<String, BuiltinActivityStrategy>
+            BUILTIN_STRATEGY_MAP = Map.of(
+                    BUILTIN_REST_FUNCTION, new RestActivityStrategy(),
+                    BUILTIN_SOAP_FUNCTION, new SoapActivityStrategy(),
+                    BUILTIN_EMAIL_FUNCTION, new EmailActivityStrategy());
+
+    // Holds the strategy resolved at setConcreteTemplateData time so that the
+    // processSpecialParameter hook can use it while iterating over parameters.
+    private BuiltinActivityStrategy currentBuiltinStrategy;
+
     @Override
     protected NodeKind getFunctionNodeKind() {
         return NodeKind.ACTIVITY_CALL;
@@ -86,8 +116,36 @@ public class ActivityCallBuilder extends CallBuilder {
 
     @Override
     public void setConcreteTemplateData(TemplateContext context) {
+        // Resolve the builtin strategy before calling super so that processSpecialParameter
+        // (invoked by setParameterProperties inside super) can see it.
+        Codedata codedata = context.codedata();
+        currentBuiltinStrategy = ACTIVITY_MODULE.equals(codedata.module())
+                ? BUILTIN_STRATEGY_MAP.get(codedata.symbol())
+                : null;
+
         super.setConcreteTemplateData(context);
         addAdvancedParameters(context, moduleInfo, this);
+    }
+
+    /**
+     * Intercepts the {@code connection} parameter of builtin activity functions and replaces it
+     * with a {@code CONNECTION}-type property so the UI renders a connection dropdown with
+     * "Add new connection" shortcuts instead of a plain expression editor.
+     */
+    @Override
+    protected boolean processSpecialParameter(ParameterData paramData) {
+        if (currentBuiltinStrategy == null) {
+            return false;
+        }
+        String paramName = ParamUtils.removeLeadingSingleQuote(paramData.name());
+        if (!Property.CONNECTION_KEY.equals(paramName)) {
+            return false;
+        }
+        properties().connectionSelector(
+                NEW_CONNECTION_SENTINEL,
+                currentBuiltinStrategy.searchNodesKind(),
+                currentBuiltinStrategy.connectors());
+        return true;
     }
 
     public static void addAdvancedParameters(TemplateContext context, ModuleInfo moduleInfo,
