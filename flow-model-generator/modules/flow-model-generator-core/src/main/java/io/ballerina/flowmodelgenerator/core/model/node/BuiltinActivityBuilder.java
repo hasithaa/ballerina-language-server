@@ -18,8 +18,6 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node;
 
-import io.ballerina.compiler.api.SemanticModel;
-import io.ballerina.compiler.syntax.tree.FunctionDefinitionNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.flowmodelgenerator.core.model.Codedata;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
@@ -30,36 +28,35 @@ import io.ballerina.flowmodelgenerator.core.model.node.builtin.BuiltinActivitySt
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.EmailActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.RestActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.SoapActivityStrategy;
-import io.ballerina.flowmodelgenerator.core.utils.FileSystemUtils;
-import io.ballerina.flowmodelgenerator.core.utils.WorkflowUtil;
 import io.ballerina.modelgenerator.commons.CommonUtils;
-import io.ballerina.projects.Document;
 import io.ballerina.tools.text.LineRange;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextEdit;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.DEFAULT_CTX_PARAM_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.WORKFLOW_MODULE;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.WORKFLOW_ORG;
 import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder.CALL_ACTIVITY_METHOD;
-import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder.addContextParameterToFunction;
-import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder.getContextParamName;
+import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder.resolveContextParamName;
+import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
 
 /**
  * Builder for builtin activity nodes (REST, SOAP, Email).
- * Delegates form field definition and code generation to a {@link BuiltinActivityStrategy}
- * selected by the {@code codedata.symbol} value.
  *
- * <p>Generates two outputs:
- * <ol>
- *   <li>An {@code @workflow:Activity} annotated function with inline client code</li>
- *   <li>A {@code ctx->callActivity(activityName, args)} invocation at the insertion point</li>
- * </ol>
+ * <p>Each variant maps to a function in the {@code ballerina/workflow.activity} module:
+ * REST → {@code callRestAPI}, SOAP → {@code callSoapAPI}, Email → {@code sendEmail}.
+ * The builder emits a single statement of the form
+ * {@code <T> <var> = check ctx->callActivity(activity:<symbol>, { connection: <conn>, ... });}
+ * — no wrapper function is generated.</p>
+ *
+ * <p>The builder owns the shared form fields ({@code connection}, {@code Databinding} for REST,
+ * result variable name, and {@code check}) so the UI is uniform across variants. The
+ * variant-specific {@link BuiltinActivityStrategy} contributes only the API-specific fields
+ * and named-argument entries.</p>
  *
  * @since 1.8.0
  */
@@ -68,11 +65,21 @@ public class BuiltinActivityBuilder extends NodeBuilder {
     public static final String LABEL = "Workflow Activity";
     public static final String DESCRIPTION = "Create a new workflow activity for common integrations";
 
-    // Property keys used by the form
-    public static final String ACTIVITY_NAME_KEY = "activityName";
-    public static final String ACTIVITY_NAME_LABEL = "Activity Name";
-    public static final String ACTIVITY_NAME_DOC = "Name of the generated activity function";
     public static final String CHECK_ERROR_KEY = "checkError";
+
+    /**
+     * Sentinel placeholder value carried by the {@code connection} property in form
+     * templates and treated as "no connection picked" at source-generation time. The UI
+     * uses this to surface a "create new connection" shortcut.
+     */
+    private static final String NEW_CONNECTION_SENTINEL = "NEW_CONNECTION";
+
+    // The activity module that hosts callRestAPI / callSoapAPI / sendEmail.
+    private static final String ACTIVITY_PKG_MODULE = "workflow.activity";
+    private static final String ACTIVITY_MODULE_PREFIX = "activity";
+
+    private static final String DEFAULT_REST_DATABINDING = "json";
+    private static final String SOAP_RESPONSE_TYPE = "xml";
 
     private static final Map<String, BuiltinActivityStrategy> STRATEGY_MAP = Map.of(
             "REST", new RestActivityStrategy(),
@@ -105,15 +112,34 @@ public class BuiltinActivityBuilder extends NodeBuilder {
 
         metadata().label(strategy.getLabel()).description(strategy.getDescription());
 
-        // Activity name field
-        properties().functionNameTemplate(strategy.getDefaultFunctionNamePrefix(),
-                context.getAllVisibleSymbolNames(), ACTIVITY_NAME_LABEL, ACTIVITY_NAME_DOC);
+        // Connection field — uses the dedicated CONNECTION value type so the BI extension
+        // renders a connection picker filtered by the strategy's `searchNodesKind`. When
+        // the user has not picked one, the value stays as "NEW_CONNECTION" — a sentinel the
+        // UI surfaces as a shortcut to create a compatible new connection.
+        properties().custom()
+                .metadata()
+                    .label(Property.CONNECTION_LABEL)
+                    .description("Module-level final client used by this activity. "
+                            + "Create one from the Connections view if none is listed.")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.CONNECTION)
+                    .selected(true)
+                    .stepOut()
+                .codedata()
+                    .kind(REQUIRED.name())
+                    .searchNodesKind(strategy.searchNodesKind())
+                    .stepOut()
+                .value(NEW_CONNECTION_SENTINEL)
+                .placeholder(NEW_CONNECTION_SENTINEL)
+                .editable(true)
+                .stepOut()
+                .addProperty(Property.CONNECTION_KEY);
 
-        // Delegate strategy-specific fields
+        // Strategy-specific API fields
         strategy.setFormProperties(this, context);
 
-        // Delegate return type and variable name to strategy
-        strategy.setPostProperties(this, context);
+        // Post-fields: REST gets databinding + result; SOAP gets result; Email gets nothing.
+        addPostProperties(strategy, context);
 
         // Check Error checkbox (default true — adds 'check' to propagate errors)
         properties().custom()
@@ -129,181 +155,145 @@ public class BuiltinActivityBuilder extends NodeBuilder {
                 .addProperty(CHECK_ERROR_KEY);
     }
 
+    private void addPostProperties(BuiltinActivityStrategy strategy, TemplateContext context) {
+        if (strategy instanceof RestActivityStrategy) {
+            // Databinding — TYPE field forwarded to callRestAPI as the `t` argument
+            properties().custom()
+                    .metadata()
+                        .label("Databinding")
+                        .description("Response data binding type (e.g., json, xml, record type)")
+                        .stepOut()
+                    .value(DEFAULT_REST_DATABINDING)
+                    .type()
+                        .fieldType(Property.ValueType.TYPE)
+                        .selected(true)
+                        .stepOut()
+                    .editable(true)
+                    .stepOut()
+                    .addProperty(Property.TYPE_KEY);
+
+            properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
+                    Property.RESULT_NAME, Property.RESULT_DOC, false);
+        } else if (strategy instanceof SoapActivityStrategy) {
+            // Return type is fixed (xml|error); only expose the result variable name.
+            properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
+                    Property.RESULT_NAME, Property.RESULT_DOC, false);
+        }
+        // Email returns error?; no result variable, no return-type field.
+    }
+
     @Override
     public Map<Path, List<TextEdit>> toSource(SourceBuilder sourceBuilder) {
         BuiltinActivityStrategy strategy = resolveStrategy(sourceBuilder.flowNode.codedata());
-
-        // ---- Extract common properties ----
-        Optional<Property> funcNameProp = sourceBuilder.getProperty(Property.FUNCTION_NAME_KEY);
-        String activityName = funcNameProp
-                .map(p -> p.value().toString())
-                .orElseThrow(() -> new IllegalStateException("Activity name is required"));
-
-        Optional<Property> variableProp = sourceBuilder.getProperty(Property.VARIABLE_KEY);
-        String variableName = variableProp
-                .map(p -> p.value().toString())
-                .orElse("result");
-
-        // Read return type from form property (TYPE_KEY), fall back to strategy default
-        Optional<Property> typeProp = sourceBuilder.getProperty(Property.TYPE_KEY);
-        String userReturnType = typeProp
-                .map(p -> p.value() != null && !p.value().toString().isEmpty() ? p.value().toString() : null)
-                .orElse(null);
-
-        // Normalize: strip |error and standalone error/?  to find the actual base return type.
-        // Examples: "json" → "json", "json|error" → "json", "error?" → "", "()|error" → "()"
-        String returnType;
-        if (userReturnType != null) {
-            String[] typeParts = userReturnType.split("\\|");
-            StringBuilder baseBuilder = new StringBuilder();
-            for (String part : typeParts) {
-                String p = part.trim().replaceAll("\\?$", "");
-                if (!p.isEmpty() && !"error".equals(p)) {
-                    if (baseBuilder.length() > 0) {
-                        baseBuilder.append("|");
-                    }
-                    baseBuilder.append(p);
-                }
-            }
-            String baseType = baseBuilder.toString().trim();
-            if (!baseType.isEmpty() && !"()".equals(baseType)) {
-                returnType = baseType + "|error";
-            } else {
-                returnType = "error?";
-            }
-        } else {
-            returnType = strategy.getActivityReturnType(sourceBuilder);
-        }
-        boolean hasReturnValue = !"error?".equals(returnType);
-        String params = strategy.getActivityFunctionParams(sourceBuilder);
-        String functionBody = strategy.generateActivityFunctionBody(sourceBuilder);
 
         LineRange lineRange = sourceBuilder.flowNode.codedata().lineRange();
         if (lineRange == null) {
             throw new IllegalStateException("Line range is not available for the builtin activity node");
         }
 
-        // ---- Step 1: Validate uniqueness BEFORE mutating sourceBuilder ----
-        try {
-            sourceBuilder.workspaceManager.loadProject(sourceBuilder.filePath);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to load project: " + sourceBuilder.filePath, e);
-        }
-        SemanticModel semanticModel = FileSystemUtils.getSemanticModel(sourceBuilder.workspaceManager,
-                sourceBuilder.filePath);
-
-        boolean nameTaken = semanticModel.moduleSymbols().stream()
-                .anyMatch(s -> s.getName().map(activityName::equals).orElse(false));
-        if (nameTaken) {
-            throw new IllegalStateException("Activity name '" + activityName
-                    + "' already exists. Please choose a unique name.");
+        // ---- Resolve common form values ----
+        Optional<Property> connectionProp = sourceBuilder.getProperty(Property.CONNECTION_KEY);
+        String connection = connectionProp
+                .map(p -> p.value() == null ? "" : p.value().toString())
+                .orElse("");
+        if (connection.isEmpty() || NEW_CONNECTION_SENTINEL.equals(connection)) {
+            throw new IllegalStateException("A connection is required for the builtin activity. "
+                    + "Pick a module-level final client from the Connection dropdown.");
         }
 
-        FunctionDefinitionNode functionNode = WorkflowUtil.findEnclosingWorkflowFunction(sourceBuilder);
-        if (functionNode == null) {
-            throw new IllegalStateException("Builtin activity call must be inside a workflow function");
-        }
-
-        Optional<String> optCtxParamName = getContextParamName(functionNode, semanticModel);
-        String ctxParamName;
-        if (optCtxParamName.isPresent()) {
-            ctxParamName = optCtxParamName.get();
-        } else {
-            addContextParameterToFunction(sourceBuilder, functionNode);
-            ctxParamName = DEFAULT_CTX_PARAM_NAME;
-        }
-
-        // ---- Step 2: Generate activity function definition ----
-        StringBuilder declarationBuilder = new StringBuilder();
-
-        // @workflow:Activity annotation + function definition
-        declarationBuilder.append("@workflow:Activity\n");
-        declarationBuilder.append("function ").append(activityName).append("(");
-        declarationBuilder.append(params);
-        declarationBuilder.append(") returns ").append(returnType).append(" {\n");
-        declarationBuilder.append(functionBody);
-        declarationBuilder.append("}\n");
-
-        // Add the declaration as a text edit at end-of-file
-        Path filePath = sourceBuilder.filePath;
-        Document document = sourceBuilder.workspaceManager.document(filePath).orElse(null);
-        int lastLine = 0;
-        int lastCol = 0;
-        if (document != null) {
-            io.ballerina.tools.text.TextDocument textDoc = document.textDocument();
-            int lineCount = textDoc.textLines().size();
-            if (lineCount > 0) {
-                lastLine = lineCount - 1;
-                lastCol = textDoc.line(lastLine).length();
-            }
-        }
-        Range endOfFileRange = CommonUtils.toRange(
-                io.ballerina.tools.text.LinePosition.from(lastLine, lastCol));
-
-        String declarationSource = "\n" + declarationBuilder;
-        sourceBuilder.addTextEdit(filePath, new TextEdit(endOfFileRange, declarationSource));
-
-        // ---- Step 3: Generate ctx->callActivity(activityName, args) at insertion point ----
-
-        // Determine if check should be added
         Optional<Property> checkErrorProp = sourceBuilder.getProperty(CHECK_ERROR_KEY);
         boolean useCheck = checkErrorProp
                 .map(p -> p.value() != null && "true".equals(p.value().toString()))
-                .orElse(false);
+                .orElse(true);
 
-        // Build the call statement
-        if (useCheck && hasReturnValue) {
-            // check mode with return value: <baseType> <variable> = check ctx->callActivity(...);
-            sourceBuilder.token()
-                    .name(returnType.replace("|error", ""))
-                    .whiteSpace()
-                    .name(variableName)
-                    .whiteSpace()
-                    .keyword(SyntaxKind.EQUAL_TOKEN);
-        } else if (!useCheck && hasReturnValue) {
-            // no check, return includes error: <returnType> <variable> = ctx->callActivity(...);
-            sourceBuilder.token()
-                    .name(returnType)
-                    .whiteSpace()
-                    .name(variableName)
-                    .whiteSpace()
-                    .keyword(SyntaxKind.EQUAL_TOKEN);
+        // Result variable name (only relevant when the activity has a return value)
+        String variableName = sourceBuilder.getProperty(Property.VARIABLE_KEY)
+                .map(p -> p.value() == null ? "result" : p.value().toString())
+                .orElse("result");
+
+        // ---- Determine LHS type / databinding / extra t arg for REST ----
+        String lhsType;
+        String databindingType = null;
+        boolean hasReturnValue;
+        if (strategy instanceof RestActivityStrategy) {
+            databindingType = sourceBuilder.getProperty(Property.TYPE_KEY)
+                    .map(p -> p.value() != null && !p.value().toString().isEmpty()
+                            ? p.value().toString()
+                            : DEFAULT_REST_DATABINDING)
+                    .orElse(DEFAULT_REST_DATABINDING);
+            lhsType = databindingType;
+            hasReturnValue = true;
+        } else if (strategy instanceof SoapActivityStrategy) {
+            lhsType = SOAP_RESPONSE_TYPE;
+            hasReturnValue = true;
+        } else {
+            lhsType = null;
+            hasReturnValue = false;
         }
-        // For useCheck && !hasReturnValue: just check ctx->callActivity(...);
-        // For !useCheck && !hasReturnValue: just ctx->callActivity(...);
-        // (error? with no check — fire and forget, error is ignored)
 
-        // Optionally add check keyword
+        // ---- Resolve workflow context parameter (adds one if missing) ----
+        String ctxParamName = resolveContextParamName(sourceBuilder);
+
+        // ---- Build the call statement ----
+        // Pattern: <T> <var> = check ctx->callActivity(activity:<symbol>, { connection: <c>, ... });
+        // Email pattern: check ctx->callActivity(activity:sendEmail, { ... });
+
+        if (hasReturnValue) {
+            if (useCheck) {
+                sourceBuilder.token()
+                        .name(lhsType)
+                        .whiteSpace()
+                        .name(variableName)
+                        .whiteSpace()
+                        .keyword(SyntaxKind.EQUAL_TOKEN);
+            } else {
+                // Without check, the call returns T|error; emit `T|error <var> =`
+                sourceBuilder.token()
+                        .name(lhsType + "|error")
+                        .whiteSpace()
+                        .name(variableName)
+                        .whiteSpace()
+                        .keyword(SyntaxKind.EQUAL_TOKEN);
+            }
+        }
+        // For !hasReturnValue (Email): if useCheck, emit `check ...;`; otherwise just call.
+
         if (useCheck) {
             sourceBuilder.token().keyword(SyntaxKind.CHECK_KEYWORD);
         }
+
         sourceBuilder.token()
                 .name(ctxParamName)
                 .keyword(SyntaxKind.RIGHT_ARROW_TOKEN)
                 .name(CALL_ACTIVITY_METHOD)
                 .keyword(SyntaxKind.OPEN_PAREN_TOKEN)
-                .name(activityName);
+                .name(ACTIVITY_MODULE_PREFIX)
+                .keyword(SyntaxKind.COLON_TOKEN)
+                .name(strategy.activityFunctionSymbol())
+                .keyword(SyntaxKind.COMMA_TOKEN);
 
-        // Add activity call arguments from form properties (execution params only)
-        List<String> argEntries = strategy.getCallActivityArgs(sourceBuilder);
-        if (!argEntries.isEmpty()) {
-            sourceBuilder.token().keyword(SyntaxKind.COMMA_TOKEN);
-            sourceBuilder.token().keyword(SyntaxKind.OPEN_BRACE_TOKEN);
-            sourceBuilder.token().name(String.join(", ", argEntries));
-            sourceBuilder.token().keyword(SyntaxKind.CLOSE_BRACE_TOKEN);
+        // Args record: { connection: <c>, <strategy args>, t: <T> (REST only) }
+        List<String> argEntries = new ArrayList<>();
+        argEntries.add("connection: " + connection);
+        argEntries.addAll(strategy.getCallActivityArgs(sourceBuilder));
+        if (databindingType != null) {
+            argEntries.add("t: " + databindingType);
         }
 
         sourceBuilder.token()
+                .keyword(SyntaxKind.OPEN_BRACE_TOKEN)
+                .name(String.join(", ", argEntries))
+                .keyword(SyntaxKind.CLOSE_BRACE_TOKEN)
                 .keyword(SyntaxKind.CLOSE_PAREN_TOKEN)
                 .endOfStatement();
 
         sourceBuilder.textEdit(SourceBuilder.SourceKind.STATEMENT,
                 sourceBuilder.filePath, CommonUtils.toRange(lineRange));
 
-        // ---- Step 4: Accept imports ----
+        // ---- Imports ----
         sourceBuilder.acceptImport(WORKFLOW_ORG, WORKFLOW_MODULE);
-        List<BuiltinActivityStrategy.Import> requiredImports = strategy.getRequiredImports(sourceBuilder);
-        for (BuiltinActivityStrategy.Import imp : requiredImports) {
+        sourceBuilder.acceptImport(WORKFLOW_ORG, ACTIVITY_PKG_MODULE);
+        for (BuiltinActivityStrategy.Import imp : strategy.getRequiredImports(sourceBuilder)) {
             sourceBuilder.acceptImport(imp.org(), imp.module());
         }
 

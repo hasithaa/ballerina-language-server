@@ -18,165 +18,47 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node.builtin;
 
-import io.ballerina.flowmodelgenerator.core.model.ItemOption;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
-import io.ballerina.flowmodelgenerator.core.model.Option;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
 
 /**
- * Strategy for generating SOAP API call activities using ballerina/soap.
- * Supports SOAP 1.1 and SOAP 1.2 clients with SendReceive / SendOnly operations.
+ * Strategy for the {@code activity:callSoapAPI} builtin activity. The SOAP version is
+ * implicit in the chosen connection ({@code soap11:Client} or {@code soap12:Client});
+ * only the per-call fields are surfaced here.
  *
  * @since 1.8.0
  */
 public class SoapActivityStrategy implements BuiltinActivityStrategy {
 
-    // Property keys
-    public static final String ENDPOINT_URL_KEY = "endpointUrl";
-    public static final String SOAP_VERSION_KEY = "soapVersion";
-    public static final String OPERATION_KEY = "operation";
+    // Property keys (match the parameter names of activity:callSoapAPI)
+    public static final String BODY_KEY = "body";
     public static final String ACTION_KEY = "action";
-    public static final String BODY_KEY = "soapBody";
     public static final String HEADERS_KEY = "headers";
     public static final String PATH_KEY = "path";
-    public static final String CLIENT_CONFIG_KEY = "clientConfig";
 
-    // SOAP version options
-    private static final String SOAP_11 = "SOAP 1.1";
-    private static final String SOAP_12 = "SOAP 1.2";
-
-    // Operation options
-    private static final String OP_SEND_RECEIVE = "SendReceive";
-    private static final String OP_SEND_ONLY = "SendOnly";
-    private static final String RETURN_TYPE_XML_WITH_ERROR = "xml|error";
-    private static final String RETURN_TYPE_ERROR_OPTIONAL = "error?";
     private static final String STRATEGY_LABEL = "Call SOAP API";
     private static final String STRATEGY_DESCRIPTION =
-            "Create a new workflow activity to call a SOAP web service.";
+            "Call a SOAP web service as a workflow activity using a configured "
+                    + "soap11:Client or soap12:Client connection.";
+
+    public static final String SOAP_PKG_ORG = "ballerina";
+    public static final String SOAP11_MODULE = "soap.soap11";
+    public static final String SOAP12_MODULE = "soap.soap12";
 
     @Override
     public void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
-        // Endpoint URL — required, TEXT + EXPRESSION
+        // Body — required xml envelope
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("Endpoint URL")
-                    .description("The SOAP service endpoint URL (e.g., http://www.dneonline.com/calculator.asmx?WSDL)")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
-                .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
-                .placeholder("http://www.example.com/service?WSDL")
-                .editable(true)
-                .stepOut()
-                .addProperty(ENDPOINT_URL_KEY);
-
-        // SOAP Version — DROPDOWN_CHOICE (SOAP 1.1 / SOAP 1.2)
-        // SOAP 1.1 requires action; SOAP 1.2 makes it optional
-        List<Option> versionOptions = List.of(
-                new Option(SOAP_11, SOAP_11),
-                new Option(SOAP_12, SOAP_12)
-        );
-
-        // Action sub-property shown as required for SOAP 1.1
-        Property actionRequiredSubProp = new Property.Builder<Void>(null)
-                .metadata()
-                    .label("Action")
-                    .description("SOAPAction header value (required for SOAP 1.1)")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
-                .value("")
-                .placeholder("http://tempuri.org/Add")
-                .editable(true)
-                .build();
-
-        // Action sub-property shown as optional for SOAP 1.2
-        Property actionOptionalSubProp = new Property.Builder<Void>(null)
-                .metadata()
-                    .label("Action")
-                    .description("SOAPAction header value (optional for SOAP 1.2)")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
-                .value("")
-                .placeholder("http://tempuri.org/Add")
-                .editable(true)
-                .optional(true)
-                .build();
-
-        Map<String, Map<String, Property>> versionDynamicFields = new LinkedHashMap<>();
-        versionDynamicFields.put(SOAP_11, Map.of(ACTION_KEY, actionRequiredSubProp));
-        versionDynamicFields.put(SOAP_12, Map.of(ACTION_KEY, actionOptionalSubProp));
-
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label("SOAP Version")
-                    .description("SOAP protocol version (1.1 or 1.2)")
-                    .stepOut()
-                .type()
-                    .fieldType(Property.ValueType.DROPDOWN_CHOICE)
-                    .options(versionOptions)
-                    .selected(true)
-                    .stepOut()
-                .codedata().kind(REQUIRED.name()).stepOut()
-                .value(SOAP_11)
-                .editable(true)
-                .itemOptions(ItemOption.from(versionOptions))
-                .dynamicFormFields(versionDynamicFields)
-                .stepOut()
-                .addProperty(SOAP_VERSION_KEY);
-
-        // Hidden top-level action property (for form value storage and code generation)
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label("Action")
-                    .description("SOAPAction header value")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .value("")
-                .editable(true)
-                .optional(true)
-                .hidden(true)
-                .stepOut()
-                .addProperty(ACTION_KEY);
-
-        // Operation — DROPDOWN_CHOICE (SendReceive / SendOnly)
-        List<Option> operationOptions = List.of(
-                new Option(OP_SEND_RECEIVE, OP_SEND_RECEIVE),
-                new Option(OP_SEND_ONLY, OP_SEND_ONLY)
-        );
-
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label("Operation")
-                    .description("SOAP operation type")
-                    .stepOut()
-                .type()
-                    .fieldType(Property.ValueType.DROPDOWN_CHOICE)
-                    .options(operationOptions)
-                    .selected(true)
-                    .stepOut()
-                .codedata().kind(REQUIRED.name()).stepOut()
-                .value(OP_SEND_RECEIVE)
-                .editable(true)
-                .itemOptions(ItemOption.from(operationOptions))
-                .stepOut()
-                .addProperty(OPERATION_KEY);
-
-        // SOAP Body — required, EXPRESSION xml
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label("SOAP Body")
-                    .description("The XML SOAP envelope/body payload")
+                    .label("Body")
+                    .description("SOAP envelope as xml")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("xml").selected(true).stepOut()
                 .codedata().kind(REQUIRED.name()).stepOut()
@@ -185,11 +67,26 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(BODY_KEY);
 
-        // Headers — optional, map<string|string[]>
+        // Action — optional string?; required for SOAP 1.1 endpoints (note in description)
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Action")
+                    .description("SOAPAction header. Required for SOAP 1.1 endpoints; optional for SOAP 1.2.")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string?").selected(false).stepOut()
+                .value("")
+                .placeholder("http://tempuri.org/Add")
+                .editable(true)
+                .optional(true)
+                .stepOut()
+                .addProperty(ACTION_KEY);
+
+        // Headers — optional map<string|string[]>
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Headers")
-                    .description("HTTP headers as a map expression")
+                    .description("Additional HTTP headers")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION)
                     .ballerinaType("map<string|string[]>").selected(true).stepOut()
@@ -203,7 +100,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Path")
-                    .description("Optional path to append to the endpoint URL")
+                    .description("Optional resource path appended to the connection's base URL")
                     .stepOut()
                 .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
@@ -212,114 +109,32 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
                 .optional(true)
                 .stepOut()
                 .addProperty(PATH_KEY);
-
-        // Client Config — optional, EXPRESSION for soap client configuration (security, etc.)
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label("Client Config")
-                    .description("SOAP client configuration record (e.g., security settings with outboundSecurity"
-                            + " and inboundSecurity)")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION)
-                    .ballerinaType("record {}").selected(true).stepOut()
-                .value("")
-                .editable(true)
-                .optional(true)
-                .stepOut()
-                .addProperty(CLIENT_CONFIG_KEY);
     }
 
     @Override
-    public String generateActivityFunctionBody(SourceBuilder sourceBuilder) {
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String soapVersion = BuiltinActivityStrategy.getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
-        String operation = BuiltinActivityStrategy.getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
-
-        String clientModule = SOAP_12.equals(soapVersion) ? "soap12" : "soap11";
-        boolean isSendOnly = OP_SEND_ONLY.equals(operation);
-
-        StringBuilder body = new StringBuilder();
-
-        // Create SOAP client
-        String clientConfig = BuiltinActivityStrategy.getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
-        body.append("    ").append(clientModule)
-                .append(":Client soapClient = check new (endpointUrl");
-        if (!clientConfig.isEmpty()) {
-            body.append(", clientConfig");
-        }
-        body.append(");\n");
-
-        // Build method call — action is always a parameter
-        if (isSendOnly) {
-            body.append("    check soapClient->sendOnly(soapBody");
-        } else {
-            body.append("    xml response = check soapClient->sendReceive(soapBody");
-        }
-
-        // Action is forwarded via the action parameter variable
-        body.append(", action");
-
-        // Headers parameter
-        String headers = BuiltinActivityStrategy.getPropertyValue(properties, HEADERS_KEY, "");
-        if (!headers.isEmpty()) {
-            body.append(", headers = headers");
-        }
-
-        // Path parameter
-        String path = BuiltinActivityStrategy.getPropertyValue(properties, PATH_KEY, "");
-        if (!path.isEmpty()) {
-            body.append(", path = path");
-        }
-
-        body.append(");\n");
-
-        if (!isSendOnly) {
-            body.append("    return response;\n");
-        }
-
-        return body.toString();
+    public String activityFunctionSymbol() {
+        return "callSoapAPI";
     }
 
     @Override
-    public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String soapVersion = BuiltinActivityStrategy.getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
-        String clientModule = SOAP_12.equals(soapVersion) ? "soap12" : "soap11";
-
-        List<String> params = new ArrayList<>();
-        params.add("string endpointUrl");
-        params.add("xml soapBody");
-        params.add("string action = \"\"");
-        params.add("map<string|string[]>? headers = ()");
-        params.add("string? path = ()");
-        params.add(clientModule + ":ClientConfiguration? clientConfig = ()");
-
-        return String.join(", ", params);
+    public String searchNodesKind() {
+        return "SOAP";
     }
 
     @Override
-    public String getActivityReturnType(SourceBuilder sourceBuilder) {
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String operation = BuiltinActivityStrategy.getPropertyValue(properties, OPERATION_KEY, OP_SEND_RECEIVE);
-        if (OP_SEND_ONLY.equals(operation)) {
-            return RETURN_TYPE_ERROR_OPTIONAL;
-        }
-        return RETURN_TYPE_XML_WITH_ERROR;
+    public String connectionBallerinaType() {
+        return "soap11:Client|soap12:Client";
     }
 
     @Override
     public List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
         Map<String, Property> properties = sourceBuilder.flowNode.properties();
-
         List<String> args = new ArrayList<>();
 
-        // endpointUrl — quote if TEXT-typed
-        BuiltinActivityStrategy.addQuotedArg(args, "endpointUrl", properties, ENDPOINT_URL_KEY);
-
-        // soapBody — always an expression, no quoting
-        String soapBody = BuiltinActivityStrategy.getPropertyValue(properties, BODY_KEY, "");
-        if (!soapBody.isEmpty()) {
-            args.add("soapBody: " + soapBody);
+        // body — always an expression, no quoting
+        String body = BuiltinActivityStrategy.getPropertyValue(properties, BODY_KEY, "");
+        if (!body.isEmpty()) {
+            args.add("body: " + body);
         }
 
         // action — quote if TEXT-typed
@@ -334,40 +149,18 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
         // path — quote if TEXT-typed
         BuiltinActivityStrategy.addQuotedArg(args, "path", properties, PATH_KEY);
 
-        // clientConfig — expression, no quoting
-        String clientConfig = BuiltinActivityStrategy.getPropertyValue(properties, CLIENT_CONFIG_KEY, "");
-        if (!clientConfig.isEmpty()) {
-            args.add("clientConfig: " + clientConfig);
-        }
-
         return args;
     }
 
     @Override
     public List<Import> getRequiredImports(SourceBuilder sourceBuilder) {
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String soapVersion = BuiltinActivityStrategy.getPropertyValue(properties, SOAP_VERSION_KEY, SOAP_11);
-        if (SOAP_12.equals(soapVersion)) {
-            return List.of(new Import("ballerina", "soap.soap12"));
-        }
-        return List.of(new Import("ballerina", "soap.soap11"));
-    }
-
-    @Override
-    public String getDefaultFunctionNamePrefix() {
-        return "callSoap";
-    }
-
-    @Override
-    public String getDefaultFormReturnType() {
-        return "xml";
-    }
-
-    @Override
-    public void setPostProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
-        // SOAP: only variable name, no return type field (return type is determined by Operation)
-        nodeBuilder.properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
-                Property.RESULT_NAME, Property.RESULT_DOC, false);
+        // Import both SOAP modules so that the file can resolve either client type.
+        // The actual connection variable is declared in user source and only one will
+        // be active at runtime; the unused import is a small cost for simplicity.
+        return List.of(
+                new Import(SOAP_PKG_ORG, SOAP11_MODULE),
+                new Import(SOAP_PKG_ORG, SOAP12_MODULE)
+        );
     }
 
     @Override
@@ -379,5 +172,4 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     public String getDescription() {
         return STRATEGY_DESCRIPTION;
     }
-
 }

@@ -22,31 +22,29 @@ import io.ballerina.flowmodelgenerator.core.model.ItemOption;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.Option;
 import io.ballerina.flowmodelgenerator.core.model.Property;
-import io.ballerina.flowmodelgenerator.core.model.PropertyTypeMemberInfo;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
 
 /**
- * Strategy for generating REST API call activities using ballerina/http.
- * Generates an activity function that creates an inline http:Client and invokes the specified HTTP method.
+ * Strategy for the {@code activity:callRestAPI} builtin activity. Surfaces the
+ * REST-call-specific form fields (method/path/message/headers); the connection,
+ * databinding, result variable and check-error fields are added by the builder.
  *
  * @since 1.8.0
  */
 public class RestActivityStrategy implements BuiltinActivityStrategy {
 
-    // Property keys
-    public static final String URL_KEY = "url";
+    // Property keys (must match the parameter names of activity:callRestAPI)
     public static final String METHOD_KEY = "method";
-    public static final String PAYLOAD_KEY = "payload";
+    public static final String PATH_KEY = "path";
+    public static final String MESSAGE_KEY = "message";
     public static final String HEADERS_KEY = "headers";
-    public static final String AUTH_CONFIG_KEY = "authConfig";
 
     // HTTP method options
     private static final String METHOD_GET = "GET";
@@ -55,60 +53,16 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     private static final String METHOD_DELETE = "DELETE";
     private static final String METHOD_PATCH = "PATCH";
 
-    private static final String HTTP_PKG_INFO = "ballerina:http:2.16.0";
-    private static final String HTTP_PKG_NAME = "http";
     public static final String HTTP_PKG_ORG = "ballerina";
     public static final String HTTP_PKG_MODULE = "http";
-    private static final String RECORD_TYPE_KIND = "RECORD_TYPE";
 
-    private static final String AUTH_BALLERINA_TYPE =
-            "http:CredentialsConfig|http:BearerTokenConfig|http:JwtIssuerConfig"
-                    + "|http:OAuth2ClientCredentialsGrantConfig|http:OAuth2PasswordGrantConfig"
-                    + "|http:OAuth2RefreshTokenGrantConfig|http:OAuth2JwtBearerGrantConfig";
-
-    private static final String DEFAULT_RETURN_TYPE = "json";
-    private static final String DATABINDING_LABEL = "Databinding";
-    private static final String DATABINDING_DESCRIPTION =
-            "Response data binding type (e.g., json, xml, record type)";
     private static final String STRATEGY_LABEL = "Call REST API";
     private static final String STRATEGY_DESCRIPTION =
-            "Create a new workflow activity to call a REST API endpoint.";
-
-    private static final List<PropertyTypeMemberInfo> AUTH_TYPE_MEMBERS = List.of(
-            new PropertyTypeMemberInfo("CredentialsConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
-                    RECORD_TYPE_KIND, false),
-            new PropertyTypeMemberInfo("BearerTokenConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
-                    RECORD_TYPE_KIND, false),
-            new PropertyTypeMemberInfo("JwtIssuerConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
-                    RECORD_TYPE_KIND, false),
-            new PropertyTypeMemberInfo("OAuth2ClientCredentialsGrantConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
-                    RECORD_TYPE_KIND, false),
-            new PropertyTypeMemberInfo("OAuth2PasswordGrantConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
-                    RECORD_TYPE_KIND, false),
-            new PropertyTypeMemberInfo("OAuth2RefreshTokenGrantConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
-                    RECORD_TYPE_KIND, false),
-            new PropertyTypeMemberInfo("OAuth2JwtBearerGrantConfig", HTTP_PKG_INFO, HTTP_PKG_NAME,
-                    RECORD_TYPE_KIND, false)
-    );
+            "Call a REST API endpoint as a workflow activity using a configured http:Client connection.";
 
     @Override
     public void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
-        // URL — required, TEXT mode (default) + EXPRESSION mode
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label("URL")
-                    .description("The full URL of the REST API endpoint (e.g., https://api.example.com/orders)")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
-                .codedata().kind(REQUIRED.name()).stepOut()
-                .value("")
-                .placeholder("https://api.example.com/orders")
-                .editable(true)
-                .stepOut()
-                .addProperty(URL_KEY);
-
-        // Method — DROPDOWN_CHOICE with dynamicFormFields for payload
+        // Method — DROPDOWN_CHOICE with dynamicFormFields exposing message for POST/PUT/PATCH
         List<Option> methodOptions = List.of(
                 new Option(METHOD_GET, METHOD_GET),
                 new Option(METHOD_POST, METHOD_POST),
@@ -117,11 +71,10 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 new Option(METHOD_PATCH, METHOD_PATCH)
         );
 
-        // Build payload sub-property for dynamicFormFields (shown when POST/PUT/PATCH selected)
-        Property payloadSubProp = new Property.Builder<Void>(null)
+        Property messageSubProp = new Property.Builder<Void>(null)
                 .metadata()
-                    .label("Payload")
-                    .description("Request body payload")
+                    .label("Message")
+                    .description("Request body payload (any HTTP-compatible type).")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION)
                     .ballerinaType("http:RequestMessage").selected(true).stepOut()
@@ -131,15 +84,15 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
         Map<String, Map<String, Property>> methodDynamicFields = new LinkedHashMap<>();
         methodDynamicFields.put(METHOD_GET, Map.of());
-        methodDynamicFields.put(METHOD_POST, Map.of(PAYLOAD_KEY, payloadSubProp));
-        methodDynamicFields.put(METHOD_PUT, Map.of(PAYLOAD_KEY, payloadSubProp));
+        methodDynamicFields.put(METHOD_POST, Map.of(MESSAGE_KEY, messageSubProp));
+        methodDynamicFields.put(METHOD_PUT, Map.of(MESSAGE_KEY, messageSubProp));
         methodDynamicFields.put(METHOD_DELETE, Map.of());
-        methodDynamicFields.put(METHOD_PATCH, Map.of(PAYLOAD_KEY, payloadSubProp));
+        methodDynamicFields.put(METHOD_PATCH, Map.of(MESSAGE_KEY, messageSubProp));
 
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Method")
-                    .description("HTTP method to use")
+                    .description("HTTP method to invoke")
                     .stepOut()
                 .type()
                     .fieldType(Property.ValueType.DROPDOWN_CHOICE)
@@ -154,10 +107,25 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(METHOD_KEY);
 
-        // Hidden top-level payload property (for form value storage and code generation)
+        // Path — TEXT (default) + EXPRESSION; defaults to "" matching the API default
         nodeBuilder.properties().custom()
                 .metadata()
-                    .label("Payload")
+                    .label("Path")
+                    .description("Resource path appended to the connection's base URL (e.g., \"/users/1\")")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
+                .value("")
+                .placeholder("/users/1")
+                .editable(true)
+                .optional(true)
+                .stepOut()
+                .addProperty(PATH_KEY);
+
+        // Hidden top-level message (storage for the dynamic POST/PUT/PATCH field)
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Message")
                     .description("Request body payload (for POST, PUT, PATCH)")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION)
@@ -167,37 +135,16 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 .optional(true)
                 .hidden(true)
                 .stepOut()
-                .addProperty(PAYLOAD_KEY);
+                .addProperty(MESSAGE_KEY);
 
-        // Auth Config — optional, RECORD_MAP_EXPRESSION with all http auth config types
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label("Authentication")
-                    .description("HTTP client authentication configuration. "
-                            + "Select an auth type (Basic, Bearer, OAuth2, etc.) to configure credentials.")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.RECORD_MAP_EXPRESSION)
-                    .ballerinaType(AUTH_BALLERINA_TYPE)
-                    .typeMembers(AUTH_TYPE_MEMBERS)
-                    .selected(false).stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION)
-                    .ballerinaType("http:ClientAuthConfig?")
-                    .selected(false).stepOut()
-                .placeholder("()")
-                .defaultValue("()")
-                .editable(true)
-                .optional(true)
-                .stepOut()
-                .addProperty(AUTH_CONFIG_KEY);
-
-        // Headers — optional, map<string|string[]>
+        // Headers — optional map<string|string[]>
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Headers")
-                    .description("HTTP request headers as a map expression")
+                    .description("Optional request headers")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION)
-                    .ballerinaType("map<string|string[]>").selected(true).stepOut()
+                    .ballerinaType("map<string|string[]>?").selected(true).stepOut()
                 .value("")
                 .editable(true)
                 .optional(true)
@@ -206,68 +153,18 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     }
 
     @Override
-    public String generateActivityFunctionBody(SourceBuilder sourceBuilder) {
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String method = BuiltinActivityStrategy.getPropertyValue(properties, METHOD_KEY, METHOD_GET);
-        String returnType = BuiltinActivityStrategy.getPropertyValue(properties, Property.TYPE_KEY,
-            DEFAULT_RETURN_TYPE);
-
-        boolean hasPayload = isPayloadMethod(method)
-                && !BuiltinActivityStrategy.getPropertyValue(properties, PAYLOAD_KEY, "").isEmpty();
-            boolean hasHeaders = !BuiltinActivityStrategy.getPropertyValue(properties, HEADERS_KEY, "").isEmpty();
-
-            String authConfig = BuiltinActivityStrategy.getPropertyValue(properties, AUTH_CONFIG_KEY, "");
-
-        StringBuilder body = new StringBuilder();
-
-        // Build inline http:Client with optional auth config
-        body.append("    http:Client httpClient = check new (url");
-        if (!authConfig.isEmpty() && !"()".equals(authConfig)) {
-            body.append(", {auth: ").append(authConfig).append("}");
-        }
-        body.append(");\n");
-
-        // Remote method call
-        body.append("    ").append(returnType).append(" response = check httpClient->")
-                .append(method.toLowerCase(Locale.ROOT)).append("(\"\"");
-
-        if (isPayloadMethod(method)) {
-            body.append(", ").append(hasPayload ? "payload" : "()");
-        }
-        if (hasHeaders) {
-            body.append(", headers = headers");
-        }
-        body.append(");\n");
-        body.append("    return response;\n");
-
-        return body.toString();
+    public String activityFunctionSymbol() {
+        return "callRestAPI";
     }
 
     @Override
-    public String getActivityFunctionParams(SourceBuilder sourceBuilder) {
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String method = BuiltinActivityStrategy.getPropertyValue(properties, METHOD_KEY, METHOD_GET);
-
-        List<String> params = new ArrayList<>();
-        params.add("string url");
-
-        // Payload: only for methods that use a body; defaults to () so callers may omit it
-        if (isPayloadMethod(method)) {
-            params.add("http:RequestMessage payload = ()");
-        }
-
-        // Headers: always optional
-        params.add("map<string|string[]>? headers = ()");
-
-        return String.join(", ", params);
+    public String connectionBallerinaType() {
+        return "http:Client";
     }
 
     @Override
-    public String getActivityReturnType(SourceBuilder sourceBuilder) {
-        Map<String, Property> properties = sourceBuilder.flowNode.properties();
-        String returnType = BuiltinActivityStrategy.getPropertyValue(properties, Property.TYPE_KEY,
-            DEFAULT_RETURN_TYPE);
-        return returnType + "|error";
+    public String searchNodesKind() {
+        return "HTTP";
     }
 
     @Override
@@ -277,18 +174,21 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
         List<String> args = new ArrayList<>();
 
-        // url — quote if TEXT-typed
-        BuiltinActivityStrategy.addQuotedArg(args, "url", properties, URL_KEY);
+        // method — always quoted (DROPDOWN_CHOICE values are bare strings)
+        args.add("method: \"" + method + "\"");
 
-        // payload — top-level property (only for POST/PUT/PATCH)
+        // path — quote if TEXT-typed; only emit when non-default
+        BuiltinActivityStrategy.addQuotedArg(args, "path", properties, PATH_KEY);
+
+        // message — only meaningful for POST/PUT/PATCH
         if (isPayloadMethod(method)) {
-            String payloadValue = BuiltinActivityStrategy.getPropertyValue(properties, PAYLOAD_KEY, "");
-            if (!payloadValue.isEmpty()) {
-                args.add("payload: " + payloadValue);
+            String message = BuiltinActivityStrategy.getPropertyValue(properties, MESSAGE_KEY, "");
+            if (!message.isEmpty()) {
+                args.add("message: " + message);
             }
         }
 
-        // headers — top-level property
+        // headers — expression, no quoting
         String headers = BuiltinActivityStrategy.getPropertyValue(properties, HEADERS_KEY, "");
         if (!headers.isEmpty()) {
             args.add("headers: " + headers);
@@ -300,33 +200,6 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public List<Import> getRequiredImports(SourceBuilder sourceBuilder) {
         return List.of(new Import(HTTP_PKG_ORG, HTTP_PKG_MODULE));
-    }
-
-    @Override
-    public String getDefaultFunctionNamePrefix() {
-        return "callRest";
-    }
-
-    @Override
-    public void setPostProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
-        // Databinding — TYPE field for response data binding (replaces generic "Return Type")
-        nodeBuilder.properties().custom()
-                .metadata()
-                    .label(DATABINDING_LABEL)
-                    .description(DATABINDING_DESCRIPTION)
-                    .stepOut()
-                .value(getDefaultFormReturnType())
-                .type()
-                    .fieldType(Property.ValueType.TYPE)
-                    .selected(true)
-                    .stepOut()
-                .editable(true)
-                .stepOut()
-                .addProperty(Property.TYPE_KEY);
-
-        // Result variable name
-        nodeBuilder.properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
-                Property.RESULT_NAME, Property.RESULT_DOC, false);
     }
 
     @Override
@@ -343,6 +216,4 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
         return METHOD_POST.equalsIgnoreCase(method) || METHOD_PUT.equalsIgnoreCase(method)
                 || METHOD_PATCH.equalsIgnoreCase(method);
     }
-
 }
-

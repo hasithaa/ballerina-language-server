@@ -14,8 +14,8 @@
   "output": {
     "id": "31",
     "metadata": {
-      "label": "Send Email (SMTP)",
-      "description": "Create a new workflow activity to send an email via SMTP."
+      "label": "Send Email",
+      "description": "Send a plain-text email as a workflow activity using a configured email:SmtpClient connection."
     },
     "codedata": {
       "node": "BUILTIN_ACTIVITY",
@@ -26,117 +26,37 @@
     },
     "returning": false,
     "properties": {
-      "functionName": {
+      "connection": {
         "metadata": {
-          "label": "Activity Name",
-          "description": "Name of the generated activity function"
+          "label": "Connection",
+          "description": "Module-level final client used by this activity. Create one from the Connections view if none is listed."
         },
         "types": [
           {
-            "fieldType": "IDENTIFIER",
-            "scope": "Global",
+            "fieldType": "CONNECTION",
             "selected": true
           }
         ],
-        "value": "sendEmail",
-        "optional": false,
-        "editable": true,
-        "advanced": false,
-        "hidden": false
-      },
-      "host": {
-        "metadata": {
-          "label": "SMTP Host",
-          "description": "SMTP server address (e.g., smtp.gmail.com). Tip: use the expression helper to make this configurable."
-        },
-        "types": [
-          {
-            "fieldType": "EXPRESSION",
-            "ballerinaType": "string",
-            "selected": true
-          }
-        ],
-        "value": "",
+        "value": "NEW_CONNECTION",
+        "placeholder": "NEW_CONNECTION",
         "optional": false,
         "editable": true,
         "advanced": false,
         "hidden": false,
         "codedata": {
-          "kind": "REQUIRED"
+          "kind": "REQUIRED",
+          "searchNodesKind": "EMAIL"
         }
       },
-      "port": {
-        "metadata": {
-          "label": "SMTP Port",
-          "description": "SMTP port (465 for SSL, 587 for TLS). Tip: use the expression helper to make this configurable."
-        },
-        "types": [
-          {
-            "fieldType": "EXPRESSION",
-            "ballerinaType": "int",
-            "selected": true
-          }
-        ],
-        "value": "587",
-        "optional": false,
-        "editable": true,
-        "advanced": false,
-        "hidden": false,
-        "codedata": {
-          "kind": "REQUIRED"
-        }
-      },
-      "smtpUsername": {
-        "metadata": {
-          "label": "Username",
-          "description": "SMTP username (email address). Tip: use the expression helper to make this configurable."
-        },
-        "types": [
-          {
-            "fieldType": "EXPRESSION",
-            "ballerinaType": "string",
-            "selected": true
-          }
-        ],
-        "value": "",
-        "optional": false,
-        "editable": true,
-        "advanced": false,
-        "hidden": false,
-        "codedata": {
-          "kind": "REQUIRED"
-        }
-      },
-      "smtpPassword": {
-        "metadata": {
-          "label": "Password",
-          "description": "SMTP password or app password. Tip: use the expression helper to make this configurable."
-        },
-        "types": [
-          {
-            "fieldType": "EXPRESSION",
-            "ballerinaType": "string",
-            "selected": true
-          }
-        ],
-        "value": "",
-        "optional": false,
-        "editable": true,
-        "advanced": false,
-        "hidden": false,
-        "codedata": {
-          "kind": "REQUIRED"
-        }
-      },
-      "toAddress": {
+      "to": {
         "metadata": {
           "label": "To",
-          "description": "Recipient email addresses (one or more)"
+          "description": "Recipient email address (or list of addresses)"
         },
         "types": [
           {
             "fieldType": "EXPRESSION",
-            "ballerinaType": "string[]",
+            "ballerinaType": "string|string[]",
             "selected": true
           }
         ],
@@ -173,7 +93,7 @@
       "body": {
         "metadata": {
           "label": "Body",
-          "description": "Email message content"
+          "description": "Plain-text body of the email"
         },
         "types": [
           {
@@ -191,15 +111,15 @@
           "kind": "REQUIRED"
         }
       },
-      "fromAddress": {
+      "from": {
         "metadata": {
           "label": "From",
-          "description": "Sender email address (often matches username)"
+          "description": "Optional sender address; if omitted, the SMTP client default applies"
         },
         "types": [
           {
             "fieldType": "EXPRESSION",
-            "ballerinaType": "string",
+            "ballerinaType": "string?",
             "selected": true
           }
         ],
@@ -212,12 +132,12 @@
       "cc": {
         "metadata": {
           "label": "CC",
-          "description": "Carbon copy email addresses"
+          "description": "Optional CC recipient(s)"
         },
         "types": [
           {
             "fieldType": "EXPRESSION",
-            "ballerinaType": "string[]",
+            "ballerinaType": "string|string[]?",
             "selected": true
           }
         ],
@@ -230,51 +150,17 @@
       "bcc": {
         "metadata": {
           "label": "BCC",
-          "description": "Blind carbon copy email addresses"
+          "description": "Optional BCC recipient(s)"
         },
         "types": [
           {
             "fieldType": "EXPRESSION",
-            "ballerinaType": "string[]",
+            "ballerinaType": "string|string[]?",
             "selected": true
           }
         ],
         "value": "",
         "optional": true,
-        "editable": true,
-        "advanced": false,
-        "hidden": false
-      },
-      "type": {
-        "metadata": {
-          "label": "Return Type",
-          "description": "Type of the return value"
-        },
-        "types": [
-          {
-            "fieldType": "TYPE",
-            "selected": true
-          }
-        ],
-        "value": "json",
-        "optional": false,
-        "editable": true,
-        "advanced": false,
-        "hidden": false
-      },
-      "variable": {
-        "metadata": {
-          "label": "Result",
-          "description": "Name of the result variable"
-        },
-        "types": [
-          {
-            "fieldType": "IDENTIFIER",
-            "selected": true
-          }
-        ],
-        "value": "result",
-        "optional": false,
         "editable": true,
         "advanced": false,
         "hidden": false

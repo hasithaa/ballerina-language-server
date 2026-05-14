@@ -28,7 +28,14 @@ import java.util.Map;
 
 /**
  * Defines the contract for builtin activity types (REST, SOAP, Email).
- * Each strategy provides form fields for the UI and generates the corresponding Ballerina source code.
+ * Each strategy maps to a single function in the {@code ballerina/workflow.activity} module
+ * (e.g., {@code callRestAPI}, {@code sendEmail}, {@code callSoapAPI}). The strategy contributes
+ * the API-specific form fields and the named-argument entries for the
+ * {@code ctx->callActivity(activity:<symbol>, { connection: <conn>, ... })} call.
+ *
+ * <p>The shared {@code connection} field, {@code Databinding}/result-name fields, and the
+ * {@code check} flag are added by {@code BuiltinActivityBuilder} and are not the strategy's
+ * concern.</p>
  *
  * @since 1.8.0
  */
@@ -44,7 +51,9 @@ public interface BuiltinActivityStrategy {
     }
 
     /**
-     * Sets the form fields for this activity type using the fluent PropertiesBuilder API.
+     * Sets the API-specific form fields for this activity type.
+     * Implementations must NOT add the connection, return-type, result-variable, or
+     * check-error fields — those are added by the builder.
      *
      * @param nodeBuilder the node builder to add properties to
      * @param context     the template context for resolving symbols
@@ -52,97 +61,39 @@ public interface BuiltinActivityStrategy {
     void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context);
 
     /**
-     * Generates the activity function source code and returns the text edits.
-     * This generates:
-     * 1. Configurable variables for auth/connection config
-     * 2. The @workflow:Activity annotated function with inline client code
+     * Returns the symbol name of the activity function to invoke in the
+     * {@code ballerina/workflow.activity} module.
      *
-     * @param sourceBuilder the source builder used for code generation
-     * @return the generated source code as a string for the function body
+     * @return the function symbol (e.g., "callRestAPI", "sendEmail", "callSoapAPI")
      */
-    String generateActivityFunctionBody(SourceBuilder sourceBuilder);
+    String activityFunctionSymbol();
 
     /**
-     * Returns the parameter list string for the generated activity function.
+     * Returns the Ballerina type used to filter module-level {@code final} client
+     * variables eligible for the connection dropdown (e.g., {@code "http:Client"}).
      *
-     * @param sourceBuilder the source builder
-     * @return the parameters string (e.g., "string resourcePath, json payload")
+     * @return the connection ballerinaType
      */
-    String getActivityFunctionParams(SourceBuilder sourceBuilder);
+    String connectionBallerinaType();
 
     /**
-     * Returns the return type for the generated activity function.
+     * Returns the connection category id (e.g., {@code "HTTP"}) advertised through the
+     * {@code CONNECTION} field's {@code codedata.searchNodesKind}. The UI uses this to
+     * filter the connection picker and to surface a shortcut to create a compatible new
+     * connection when none is available.
      *
-     * @param sourceBuilder the source builder
-     * @return the return type string (e.g., "json|error")
+     * @return the connection category id
      */
-    String getActivityReturnType(SourceBuilder sourceBuilder);
+    String searchNodesKind();
 
     /**
-     * Returns the configurable variable declarations to be generated.
-     * Default implementation returns an empty list (no configurables).
+     * Returns the Ballerina imports required by the connection type for this activity.
+     * The {@code workflow.activity} import is added by the builder.
      *
      * @param sourceBuilder the source builder
-     * @param activityName  the name of the activity (used as prefix for configurable names)
-     * @return list of configurable variable declaration strings
-     */
-    default List<String> getConfigurableDeclarations(SourceBuilder sourceBuilder, String activityName) {
-        return List.of();
-    }
-
-    /**
-     * Returns the import statements required by this activity type.
-     *
-     * @param sourceBuilder the source builder
-     * @return list of imports required by this activity
+     * @return list of imports required by the connection type
      */
     List<Import> getRequiredImports(SourceBuilder sourceBuilder);
-
-    /**
-     * Returns the default function name prefix for this activity type.
-     *
-     * @return the default name prefix (e.g., "callRest", "callSoap", "sendEmail")
-     */
-    String getDefaultFunctionNamePrefix();
-
-    /**
-     * Returns the default return type shown in the form's Return Type field.
-     * Override this to change from the default "json".
-     *
-     * @return the default return type (e.g., "json", "xml")
-     */
-    default String getDefaultFormReturnType() {
-        return "json";
-    }
-
-    /**
-     * Whether this strategy should add post-properties to the form.
-     *
-     * <p>Post-properties typically include the return type and result variable fields.
-     * Strategies that only return {@code error?} can disable these fields.</p>
-     *
-     * @return {@code true} if post-properties should be added, {@code false} otherwise
-     */
-    default boolean shouldAddPostProperties() {
-        return true;
-    }
-
-    /**
-     * Sets the post-strategy form properties (return type, variable name, etc.).
-     * Override this to customize the form layout for return type and variable name.
-     * Default implementation adds Return Type and Result Variable Name fields.
-     *
-     * @param nodeBuilder the node builder to add properties to
-     * @param context     the template context for resolving symbols
-     */
-    default void setPostProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
-        if (!shouldAddPostProperties()) {
-            return;
-        }
-        nodeBuilder.properties().returnType(getDefaultFormReturnType(), null, false);
-        nodeBuilder.properties().data(Property.RESULT_NAME, context.getAllVisibleSymbolNames(),
-                Property.RESULT_NAME, Property.RESULT_DOC, false);
-    }
 
     /**
      * Returns the label for this activity type.
@@ -159,13 +110,13 @@ public interface BuiltinActivityStrategy {
     String getDescription();
 
     /**
-     * Builds the argument entries for the call activity invocation.
-     * Strategies should override this to return the named argument list built from
-     * their own known parameter keys and the node properties — rather than re-parsing
-     * the formatted string from {@link #getActivityFunctionParams}.
+     * Builds the API-specific named-argument entries for the
+     * {@code ctx->callActivity(activity:<symbol>, { connection: <conn>, ... })} call record.
+     * The {@code connection:} and (for REST) {@code t:} entries are emitted by the builder
+     * and must not be returned here.
      *
      * @param sourceBuilder the source builder
-     * @return list of argument entries (e.g. {@code "url: \"https://...\""})
+     * @return list of argument entries (e.g. {@code "method: \"GET\""})
      */
     default List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
         return List.of();
