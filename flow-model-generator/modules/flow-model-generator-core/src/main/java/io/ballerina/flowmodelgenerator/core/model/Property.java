@@ -439,7 +439,8 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                         .keywords(original.metadata().keywords())
                         .icon(original.metadata().icon())
                         .functionKind(original.metadata().functionKind())
-                        .data(original.metadata().data());
+                        .data(original.metadata().data())
+                        .connectors(original.metadata().connectors());
             }
             if (original.diagnostics() != null) {
                 builder.diagnosticsBuilder = new Diagnostics.Builder<>(builder);

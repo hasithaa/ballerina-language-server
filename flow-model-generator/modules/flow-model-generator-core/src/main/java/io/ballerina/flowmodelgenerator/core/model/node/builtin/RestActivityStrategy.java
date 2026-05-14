@@ -18,8 +18,11 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node.builtin;
 
+import io.ballerina.flowmodelgenerator.core.model.Codedata;
 import io.ballerina.flowmodelgenerator.core.model.ItemOption;
+import io.ballerina.flowmodelgenerator.core.model.Metadata;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
+import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Option;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
@@ -165,6 +168,16 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String searchNodesKind() {
         return "HTTP";
+    }
+
+    @Override
+    public List<Metadata.AllowedConnector> connectors() {
+        Codedata httpConnector = new Codedata.Builder<>(null)
+                .node(NodeKind.NEW_CONNECTION)
+                .org(HTTP_PKG_ORG).module(HTTP_PKG_MODULE).packageName(HTTP_PKG_MODULE)
+                .object("Client").symbol("init")
+                .build();
+        return List.of(new Metadata.AllowedConnector(httpConnector, "Add new HTTP connection"));
     }
 
     @Override

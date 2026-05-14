@@ -42,7 +42,6 @@ import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.WORKFLOW_M
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.WORKFLOW_ORG;
 import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder.CALL_ACTIVITY_METHOD;
 import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder.resolveContextParamName;
-import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
 
 /**
  * Builder for builtin activity nodes (REST, SOAP, Email).
@@ -112,28 +111,12 @@ public class BuiltinActivityBuilder extends NodeBuilder {
 
         metadata().label(strategy.getLabel()).description(strategy.getDescription());
 
-        // Connection field — uses the dedicated CONNECTION value type so the BI extension
-        // renders a connection picker filtered by the strategy's `searchNodesKind`. When
-        // the user has not picked one, the value stays as "NEW_CONNECTION" — a sentinel the
-        // UI surfaces as a shortcut to create a compatible new connection.
-        properties().custom()
-                .metadata()
-                    .label(Property.CONNECTION_LABEL)
-                    .description("Module-level final client used by this activity. "
-                            + "Create one from the Connections view if none is listed.")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.CONNECTION)
-                    .selected(true)
-                    .stepOut()
-                .codedata()
-                    .kind(REQUIRED.name())
-                    .searchNodesKind(strategy.searchNodesKind())
-                    .stepOut()
-                .value(NEW_CONNECTION_SENTINEL)
-                .placeholder(NEW_CONNECTION_SENTINEL)
-                .editable(true)
-                .stepOut()
-                .addProperty(Property.CONNECTION_KEY);
+        // Connection field — delegates to FormBuilder.connectionSelector so the BI extension
+        // renders a connection picker filtered by the strategy's `searchNodesKind`. When the
+        // user has no compatible connection, `connectors` surfaces inline "Add new ..."
+        // buttons (HTTP / SMTP / SOAP 1.1 / SOAP 1.2) that open a create-connection overlay.
+        properties().connectionSelector(NEW_CONNECTION_SENTINEL, strategy.searchNodesKind(),
+                strategy.connectors());
 
         // Strategy-specific API fields
         strategy.setFormProperties(this, context);

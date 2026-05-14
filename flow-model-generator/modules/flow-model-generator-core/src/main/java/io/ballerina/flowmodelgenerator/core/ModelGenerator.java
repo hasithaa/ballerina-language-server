@@ -75,6 +75,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -348,7 +349,20 @@ public class ModelGenerator {
                         .filter(node -> node.codedata().node() == requiredNodeKind)
                         .toList();
             } catch (IllegalArgumentException e) {
-                flowNodesList.clear();
+                // kindFilter is not a NodeKind enum value — treat as a case-insensitive module
+                // prefix filter so that connection-kind strings like "HTTP", "SOAP", "EMAIL"
+                // can match nodes whose codedata.module starts with the same prefix.
+                // e.g. "HTTP"  → module="http"
+                //      "SOAP"  → module="soap.soap11" / "soap.soap12"
+                //      "EMAIL" → module="email"
+                String kindLower = kindFilter.toLowerCase(Locale.ROOT);
+                flowNodesList = flowNodesList.stream()
+                        .filter(node -> {
+                            String module = node.codedata() != null ? node.codedata().module() : null;
+                            return module != null
+                                    && module.toLowerCase(Locale.ROOT).startsWith(kindLower);
+                        })
+                        .toList();
             }
         }
         return flowNodesList;

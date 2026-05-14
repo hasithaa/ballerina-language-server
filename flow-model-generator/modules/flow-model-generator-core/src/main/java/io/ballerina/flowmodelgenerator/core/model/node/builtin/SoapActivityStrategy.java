@@ -18,7 +18,10 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node.builtin;
 
+import io.ballerina.flowmodelgenerator.core.model.Codedata;
+import io.ballerina.flowmodelgenerator.core.model.Metadata;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
+import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 
@@ -119,6 +122,24 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
     @Override
     public String searchNodesKind() {
         return "SOAP";
+    }
+
+    @Override
+    public List<Metadata.AllowedConnector> connectors() {
+        Codedata soap11 = new Codedata.Builder<>(null)
+                .node(NodeKind.NEW_CONNECTION)
+                .org(SOAP_PKG_ORG).module(SOAP11_MODULE).packageName("soap")
+                .object("Client").symbol("init")
+                .build();
+        Codedata soap12 = new Codedata.Builder<>(null)
+                .node(NodeKind.NEW_CONNECTION)
+                .org(SOAP_PKG_ORG).module(SOAP12_MODULE).packageName("soap")
+                .object("Client").symbol("init")
+                .build();
+        return List.of(
+                new Metadata.AllowedConnector(soap11, "Add new SOAP 1.1 connection"),
+                new Metadata.AllowedConnector(soap12, "Add new SOAP 1.2 connection")
+        );
     }
 
     @Override
