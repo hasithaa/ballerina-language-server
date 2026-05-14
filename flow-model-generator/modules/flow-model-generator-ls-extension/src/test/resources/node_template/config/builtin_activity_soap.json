@@ -15,7 +15,7 @@
     "id": "31",
     "metadata": {
       "label": "Call SOAP API",
-      "description": "Create a new workflow activity to call a SOAP web service."
+      "description": "Call a SOAP web service as a workflow activity using a configured soap11:Client or soap12:Client connection."
     },
     "codedata": {
       "node": "BUILTIN_ACTIVITY",
@@ -26,211 +26,32 @@
     },
     "returning": false,
     "properties": {
-      "functionName": {
+      "connection": {
         "metadata": {
-          "label": "Activity Name",
-          "description": "Name of the generated activity function"
+          "label": "Connection",
+          "description": "Module-level final client used by this activity. Create one from the Connections view if none is listed."
         },
         "types": [
           {
-            "fieldType": "IDENTIFIER",
-            "scope": "Global",
+            "fieldType": "CONNECTION",
             "selected": true
           }
         ],
-        "value": "callSoap",
-        "optional": false,
-        "editable": true,
-        "advanced": false,
-        "hidden": false
-      },
-      "endpointUrl": {
-        "metadata": {
-          "label": "Endpoint URL",
-          "description": "The SOAP service endpoint URL (e.g., http://www.dneonline.com/calculator.asmx?WSDL)"
-        },
-        "types": [
-          {
-            "fieldType": "TEXT",
-            "ballerinaType": "string",
-            "selected": true
-          },
-          {
-            "fieldType": "EXPRESSION",
-            "ballerinaType": "string",
-            "selected": false
-          }
-        ],
-        "value": "",
-        "placeholder": "http://www.example.com/service?WSDL",
+        "value": "NEW_CONNECTION",
+        "placeholder": "NEW_CONNECTION",
         "optional": false,
         "editable": true,
         "advanced": false,
         "hidden": false,
         "codedata": {
-          "kind": "REQUIRED"
+          "kind": "REQUIRED",
+          "searchNodesKind": "SOAP"
         }
       },
-      "soapVersion": {
+      "body": {
         "metadata": {
-          "label": "SOAP Version",
-          "description": "SOAP protocol version (1.1 or 1.2)"
-        },
-        "types": [
-          {
-            "fieldType": "DROPDOWN_CHOICE",
-            "options": [
-              {
-                "label": "SOAP 1.1",
-                "value": "SOAP 1.1"
-              },
-              {
-                "label": "SOAP 1.2",
-                "value": "SOAP 1.2"
-              }
-            ],
-            "selected": true
-          }
-        ],
-        "value": "SOAP 1.1",
-        "optional": false,
-        "editable": true,
-        "advanced": false,
-        "hidden": false,
-        "codedata": {
-          "kind": "REQUIRED"
-        },
-        "dynamicFormFields": {
-          "SOAP 1.1": {
-            "action": {
-              "metadata": {
-                "label": "Action",
-                "description": "SOAPAction header value (required for SOAP 1.1)"
-              },
-              "types": [
-                {
-                  "fieldType": "TEXT",
-                  "ballerinaType": "string",
-                  "selected": true
-                },
-                {
-                  "fieldType": "EXPRESSION",
-                  "ballerinaType": "string",
-                  "selected": false
-                }
-              ],
-              "value": "",
-              "placeholder": "http://tempuri.org/Add",
-              "optional": false,
-              "editable": true,
-              "advanced": false,
-              "hidden": false
-            }
-          },
-          "SOAP 1.2": {
-            "action": {
-              "metadata": {
-                "label": "Action",
-                "description": "SOAPAction header value (optional for SOAP 1.2)"
-              },
-              "types": [
-                {
-                  "fieldType": "TEXT",
-                  "ballerinaType": "string",
-                  "selected": true
-                },
-                {
-                  "fieldType": "EXPRESSION",
-                  "ballerinaType": "string",
-                  "selected": false
-                }
-              ],
-              "value": "",
-              "placeholder": "http://tempuri.org/Add",
-              "optional": true,
-              "editable": true,
-              "advanced": false,
-              "hidden": false
-            }
-          }
-        },
-        "itemOptions": [
-          {
-            "id": "SOAP 1.1",
-            "content": "SOAP 1.1",
-            "value": "SOAP 1.1"
-          },
-          {
-            "id": "SOAP 1.2",
-            "content": "SOAP 1.2",
-            "value": "SOAP 1.2"
-          }
-        ]
-      },
-      "action": {
-        "metadata": {
-          "label": "Action",
-          "description": "SOAPAction header value"
-        },
-        "types": [
-          {
-            "fieldType": "TEXT",
-            "ballerinaType": "string",
-            "selected": true
-          }
-        ],
-        "value": "",
-        "optional": true,
-        "editable": true,
-        "advanced": false,
-        "hidden": true
-      },
-      "operation": {
-        "metadata": {
-          "label": "Operation",
-          "description": "SOAP operation type"
-        },
-        "types": [
-          {
-            "fieldType": "DROPDOWN_CHOICE",
-            "options": [
-              {
-                "label": "SendReceive",
-                "value": "SendReceive"
-              },
-              {
-                "label": "SendOnly",
-                "value": "SendOnly"
-              }
-            ],
-            "selected": true
-          }
-        ],
-        "value": "SendReceive",
-        "optional": false,
-        "editable": true,
-        "advanced": false,
-        "hidden": false,
-        "codedata": {
-          "kind": "REQUIRED"
-        },
-        "itemOptions": [
-          {
-            "id": "SendReceive",
-            "content": "SendReceive",
-            "value": "SendReceive"
-          },
-          {
-            "id": "SendOnly",
-            "content": "SendOnly",
-            "value": "SendOnly"
-          }
-        ]
-      },
-      "soapBody": {
-        "metadata": {
-          "label": "SOAP Body",
-          "description": "The XML SOAP envelope/body payload"
+          "label": "Body",
+          "description": "SOAP envelope as xml"
         },
         "types": [
           {
@@ -248,10 +69,34 @@
           "kind": "REQUIRED"
         }
       },
+      "action": {
+        "metadata": {
+          "label": "Action",
+          "description": "SOAPAction header. Required for SOAP 1.1 endpoints; optional for SOAP 1.2."
+        },
+        "types": [
+          {
+            "fieldType": "TEXT",
+            "ballerinaType": "string",
+            "selected": true
+          },
+          {
+            "fieldType": "EXPRESSION",
+            "ballerinaType": "string?",
+            "selected": false
+          }
+        ],
+        "value": "",
+        "placeholder": "http://tempuri.org/Add",
+        "optional": true,
+        "editable": true,
+        "advanced": false,
+        "hidden": false
+      },
       "headers": {
         "metadata": {
           "label": "Headers",
-          "description": "HTTP headers as a map expression"
+          "description": "Additional HTTP headers"
         },
         "types": [
           {
@@ -269,7 +114,7 @@
       "path": {
         "metadata": {
           "label": "Path",
-          "description": "Optional path to append to the endpoint URL"
+          "description": "Optional resource path appended to the connection's base URL"
         },
         "types": [
           {
@@ -281,24 +126,6 @@
             "fieldType": "EXPRESSION",
             "ballerinaType": "string",
             "selected": false
-          }
-        ],
-        "value": "",
-        "optional": true,
-        "editable": true,
-        "advanced": false,
-        "hidden": false
-      },
-      "clientConfig": {
-        "metadata": {
-          "label": "Client Config",
-          "description": "SOAP client configuration record (e.g., security settings with outboundSecurity and inboundSecurity)"
-        },
-        "types": [
-          {
-            "fieldType": "EXPRESSION",
-            "ballerinaType": "record {}",
-            "selected": true
           }
         ],
         "value": "",

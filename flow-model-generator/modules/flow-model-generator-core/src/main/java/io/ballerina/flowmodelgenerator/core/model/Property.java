@@ -372,7 +372,15 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
          */
         RECORD_FIELD_SELECTOR,
         ADVANCE_PARAM_LIST,
-        DROPDOWN_CHOICE
+        DROPDOWN_CHOICE,
+        /**
+         * A property type that renders a connection picker in the UI. The compatible
+         * connection kinds are advertised through {@link PropertyCodedata#searchNodesKind()}.
+         * The property value carries the picked connection variable name, or
+         * {@code "NEW_CONNECTION"} when the user has not yet picked one (which the UI
+         * surfaces as a shortcut to create a new connection).
+         */
+        CONNECTION
     }
 
     public static class Builder<T> extends FacetedBuilder<T> implements DiagnosticHandler.DiagnosticCapable {
