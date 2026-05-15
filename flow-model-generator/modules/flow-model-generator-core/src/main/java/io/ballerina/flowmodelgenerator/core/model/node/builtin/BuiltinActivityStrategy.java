@@ -141,6 +141,11 @@ public interface BuiltinActivityStrategy {
      * when the property's currently-selected type is {@link Property.ValueType#TEXT}
      * (i.e., the user entered plain text, not an expression). Skips when the property is
      * missing or its value is empty.
+     *
+     * <p>When the TEXT-typed value is already a Ballerina double-quoted string literal
+     * ({@code "..."}), it is emitted as-is. Plain string templates without interpolations
+     * (e.g. {@code string `/hello`}) are first normalised to double-quoted literals so that
+     * the generated source consistently uses {@code "..."} rather than {@code string `...`}.</p>
      */
     static void addQuotedArg(List<String> args, String paramName,
                              Map<String, Property> properties, String propKey) {
@@ -153,9 +158,38 @@ public interface BuiltinActivityStrategy {
         }
         String value = prop.value().toString();
         if (isTextSelected(prop)) {
-            value = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+            // Normalise plain string templates (no interpolation) to double-quoted literals
+            // so source always uses "..." rather than string `...`.
+            value = normalizeStringLiteral(value);
+            if (!isBallerinaStringExpression(value)) {
+                value = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+            }
         }
         args.add(paramName + ": " + value);
+    }
+
+    /**
+     * Converts a Ballerina string template without interpolations (e.g. {@code string `/abc`})
+     * to an equivalent double-quoted string literal (e.g. {@code "/abc"}).
+     * Returns the value unchanged when it already is a double-quoted literal, contains
+     * interpolations ({@code ${...}}), or is any other expression.
+     */
+    static String normalizeStringLiteral(String value) {
+        if (value != null && value.startsWith("string `") && value.endsWith("`")
+                && !value.contains("${")) {
+            String inner = value.substring("string `".length(), value.length() - 1);
+            return "\"" + inner.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        }
+        return value;
+    }
+
+    /**
+     * Returns {@code true} when the value is already a Ballerina double-quoted string
+     * literal ({@code "..."}).  Such values must not be additionally wrapped in
+     * double-quotes during source generation.
+     */
+    static boolean isBallerinaStringExpression(String value) {
+        return value.startsWith("\"") && value.endsWith("\"") && value.length() > 1;
     }
 
     /**

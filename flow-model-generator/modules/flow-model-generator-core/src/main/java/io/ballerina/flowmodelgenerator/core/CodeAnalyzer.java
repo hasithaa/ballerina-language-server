@@ -168,6 +168,9 @@ import io.ballerina.flowmodelgenerator.core.model.node.ShortTermMemoryStoreBuild
 import io.ballerina.flowmodelgenerator.core.model.node.StartBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.VariableBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.VectorStoreBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.BuiltinActivityBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.builtin.BuiltinActivityStrategy;
+import io.ballerina.flowmodelgenerator.core.model.node.builtin.RestActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.WaitBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.WaitDataBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.XmlPayloadBuilder;
@@ -209,7 +212,14 @@ import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.ACTIVITY_MODULE;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.AWAIT_METHOD_NAME;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_EMAIL_FUNCTION;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_EMAIL_SYMBOL;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_REST_FUNCTION;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_REST_SYMBOL;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_SOAP_FUNCTION;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_SOAP_SYMBOL;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.CALL_ACTIVITY_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.RUN_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.SEND_DATA_METHOD_NAME;
@@ -463,7 +473,12 @@ public class CodeAnalyzer extends NodeVisitor {
             startNode(NodeKind.AGENT_CALL, expressionNode.parent());
             populateAgentMetaData(expressionNode, classSymbol);
         } else if (isWorkflowCtxOperation(remoteMethodCallActionNode, classSymbol, CALL_ACTIVITY_METHOD_NAME)) {
-            startNode(NodeKind.ACTIVITY_CALL, expressionNode.parent());
+            String builtinSymbol = resolveBuiltinActivitySymbol(remoteMethodCallActionNode.arguments());
+            if (builtinSymbol != null) {
+                startNode(NodeKind.BUILTIN_ACTIVITY, expressionNode.parent());
+            } else {
+                startNode(NodeKind.ACTIVITY_CALL, expressionNode.parent());
+            }
         } else if (isWorkflowCtxOperation(remoteMethodCallActionNode, classSymbol, AWAIT_METHOD_NAME)) {
             // Use the enclosing variable declaration's line range when present so workflow compiler
             // plugin diagnostics on the typed binding pattern (e.g. WORKFLOW_123 on non-nilable tuple
@@ -477,8 +492,16 @@ public class CodeAnalyzer extends NodeVisitor {
                 classSymbol.getName().orElse(""), metadataData);
 
         if (isWorkflowCtxOperation(remoteMethodCallActionNode, classSymbol, CALL_ACTIVITY_METHOD_NAME)) {
-            overrideSymbolFromFirstArg(remoteMethodCallActionNode.arguments());
-            populateActivityCallProperties(remoteMethodCallActionNode);
+            String builtinSymbol = resolveBuiltinActivitySymbol(remoteMethodCallActionNode.arguments());
+            if (builtinSymbol != null) {
+                // BUILTIN_ACTIVITY: set strategy symbol directly; skip overrideSymbolFromFirstArg
+                // so the "REST"/"SOAP"/"EMAIL" key is preserved for BuiltinActivityBuilder.
+                nodeBuilder.codedata().symbol(builtinSymbol);
+                populateBuiltinActivityProperties(remoteMethodCallActionNode, builtinSymbol);
+            } else {
+                overrideSymbolFromFirstArg(remoteMethodCallActionNode.arguments());
+                populateActivityCallProperties(remoteMethodCallActionNode);
+            }
         } else if (isWorkflowCtxOperation(remoteMethodCallActionNode, classSymbol, AWAIT_METHOD_NAME)) {
             populateAwaitWaitDataProperties(remoteMethodCallActionNode);
         }
@@ -807,6 +830,39 @@ public class CodeAnalyzer extends NodeVisitor {
     }
 
     /**
+     * Returns the builtin-activity strategy symbol ("REST", "SOAP", or "EMAIL") if the first
+     * positional argument of a {@code ctx->callActivity(...)} call resolves to one of the known
+     * builtin activity functions in the {@code workflow.activity} module, or {@code null} otherwise.
+     */
+    private String resolveBuiltinActivitySymbol(SeparatedNodeList<FunctionArgumentNode> args) {
+        if (args.isEmpty() || !(args.get(0) instanceof PositionalArgumentNode firstArg)) {
+            return null;
+        }
+        Optional<Symbol> resolvedSymbol = semanticModel.symbol(firstArg.expression());
+        if (resolvedSymbol.isEmpty()) {
+            return null;
+        }
+        Symbol sym = resolvedSymbol.get();
+        String functionName = sym.getName().orElse("");
+        Optional<ModuleSymbol> module = sym.getModule();
+        if (module.isEmpty()) {
+            return null;
+        }
+        String moduleName = module.get().id().moduleName();
+        if (!ACTIVITY_MODULE.equals(moduleName)) {
+            return null;
+        }
+        if (BUILTIN_REST_FUNCTION.equals(functionName)) {
+            return BUILTIN_REST_SYMBOL;
+        } else if (BUILTIN_SOAP_FUNCTION.equals(functionName)) {
+            return BUILTIN_SOAP_SYMBOL;
+        } else if (BUILTIN_EMAIL_FUNCTION.equals(functionName)) {
+            return BUILTIN_EMAIL_SYMBOL;
+        }
+        return null;
+    }
+
+    /**
      * Overrides the codedata symbol and org/module with the function reference from the first positional argument.
      * Used for workflow operations like callActivity and workflow:run where the first argument is a function reference
      * whose identity should be the node's symbol.
@@ -907,6 +963,153 @@ public class CodeAnalyzer extends NodeVisitor {
                     customPropBuilder, diagnosticHandler);
             nodeBuilderFormBuilder.addProperty(FlowNodeUtil.getPropertyKey(paramName), valueNode);
         }
+    }
+
+    /**
+     * Populates form properties for a BUILTIN_ACTIVITY node from the existing source.
+     * <p>
+     * Unlike {@link #populateActivityCallProperties}, this method:
+     * <ul>
+     *   <li>does NOT create an ADVANCED_PARAM_KEY nested structure,</li>
+     *   <li>stores connection under {@link Property#CONNECTION_KEY} ("connection") directly so that
+     *       {@code BuiltinActivityBuilder.toSource()} can read it back — using
+     *       {@code FlowNodeUtil.getPropertyKey("connection")} would produce "$connection" because
+     *       "connection" is in RESERVED_PROPERTY_KEYS, causing a key mismatch, and</li>
+     *   <li>strips outer Ballerina string-literal quotes from the method value so it matches the
+     *       DROPDOWN_CHOICE option expected by the REST-activity form (e.g. {@code GET}, not
+     *       {@code "GET"}).</li>
+     * </ul>
+     * {@link Property#TYPE_KEY} and {@link Property#VARIABLE_KEY} are added later by
+     * {@code handleVariableNode} → {@code dataVariable()}.
+     *
+     * @param callNode the {@code ctx->callActivity(...)} call node
+     */
+    private void populateBuiltinActivityProperties(RemoteMethodCallActionNode callNode, String builtinSymbol) {
+        // Clear all properties added by setFunctionProperties (callActivity params, connection, etc.)
+        // so only the BUILTIN_ACTIVITY-specific form fields remain.
+        nodeBuilder.properties().build().clear();
+
+        SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
+
+        // The second positional arg is the args record literal, e.g.:
+        // {connection: httpClient, method: "GET", path: string `/hello`, ...}
+        if (args.size() <= 1) {
+            return;
+        }
+        FunctionArgumentNode secondArg = args.get(1);
+        if (!(secondArg instanceof PositionalArgumentNode posArg)) {
+            return;
+        }
+        ExpressionNode secondExpr = posArg.expression();
+        if (secondExpr.kind() != SyntaxKind.MAPPING_CONSTRUCTOR) {
+            return;
+        }
+
+        // Resolve the strategy once so per-field decisions can use its metadata.
+        BuiltinActivityStrategy strategy = BuiltinActivityBuilder.getStrategy(builtinSymbol);
+
+        for (MappingFieldNode field : ((MappingConstructorExpressionNode) secondExpr).fields()) {
+            if (!(field instanceof SpecificFieldNode sf)) {
+                continue;
+            }
+            String key = sf.fieldName().toString().trim();
+            String value = sf.valueExpr().map(n -> n.toSourceCode().strip()).orElse("");
+
+            if (Property.CONNECTION_KEY.equals(key)) {
+                // Use CONNECTION type (connection-picker widget) matching the creation template.
+                // Pass the actual connection name as the placeholder so the picker shows the
+                // existing connection as the selected value.
+                nodeBuilder.properties().connectionSelector(
+                        value,
+                        strategy != null ? strategy.searchNodesKind() : null,
+                        strategy != null ? strategy.connectors() : null
+                );
+            } else if (RestActivityStrategy.PATH_KEY.equals(key)) {
+                // Detect a double-quoted string literal (e.g. "/hello") so the field is shown
+                // in TEXT mode with the bare path, matching how the creation form behaves.
+                boolean isStringLiteral = value.startsWith("\"") && value.endsWith("\"")
+                        && value.length() >= 2;
+                String displayValue = isStringLiteral
+                        ? value.substring(1, value.length() - 1)
+                        : value;
+                nodeBuilder.properties().custom()
+                        .metadata()
+                            .label("Path")
+                            .description("Resource path appended to the connection's base URL"
+                                    + " (e.g., \"/users/1\")")
+                            .stepOut()
+                        .type().fieldType(Property.ValueType.TEXT).ballerinaType("string")
+                            .selected(isStringLiteral).stepOut()
+                        .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string")
+                            .selected(!isStringLiteral).stepOut()
+                        .value(displayValue)
+                        .placeholder("/users/1")
+                        .editable(true)
+                        .optional(true)
+                        .stepOut()
+                        .addProperty(key);
+            } else {
+                // For DROPDOWN_CHOICE fields (REST method): strip surrounding Ballerina string-literal
+                // quotes so the stored value (e.g. GET) matches the dropdown option, not "GET".
+                if (RestActivityStrategy.METHOD_KEY.equals(key) && value.length() >= 2
+                        && value.startsWith("\"") && value.endsWith("\"")) {
+                    value = value.substring(1, value.length() - 1);
+                }
+                nodeBuilder.properties().custom()
+                        .metadata()
+                            .label(key)
+                            .description("")
+                            .stepOut()
+                        .type()
+                            .fieldType(Property.ValueType.EXPRESSION)
+                            .selected(true)
+                            .stepOut()
+                        .value(value)
+                        .editable()
+                        .stepOut()
+                        .addProperty(key);
+            }
+        }
+        // Add TYPE_KEY and VARIABLE_KEY with labels matching the BUILTIN_ACTIVITY template, so
+        // the form shows "Databinding" and "Result" with the values from the existing source.
+        if (typedBindingPatternNode != null) {
+            if (BUILTIN_REST_SYMBOL.equals(builtinSymbol)) {
+                // REST: Databinding (TYPE_KEY) + Result (VARIABLE_KEY)
+                String typeText = typedBindingPatternNode.typeDescriptor().toSourceCode().strip();
+                nodeBuilder.properties().custom()
+                        .metadata()
+                            .label("Databinding")
+                            .description("Response data binding type (e.g., json, xml, record type)")
+                            .stepOut()
+                        .value(typeText)
+                        .type()
+                            .fieldType(Property.ValueType.TYPE)
+                            .selected(true)
+                            .stepOut()
+                        .editable(true)
+                        .stepOut()
+                        .addProperty(Property.TYPE_KEY);
+            }
+            if (BUILTIN_REST_SYMBOL.equals(builtinSymbol) || BUILTIN_SOAP_SYMBOL.equals(builtinSymbol)) {
+                // REST and SOAP: Result (VARIABLE_KEY)
+                String varText = typedBindingPatternNode.bindingPattern().toSourceCode().strip();
+                nodeBuilder.properties().custom()
+                        .metadata()
+                            .label(Property.RESULT_NAME)
+                            .description(Property.RESULT_DOC)
+                            .stepOut()
+                        .value(varText)
+                        .type()
+                            .fieldType(Property.ValueType.IDENTIFIER)
+                            .selected(true)
+                            .stepOut()
+                        .editable(true)
+                        .stepOut()
+                        .addProperty(Property.VARIABLE_KEY);
+            }
+            // EMAIL: no result variable or type field
+        }
+        // checkError is not set here; BuiltinActivityBuilder.toSource() defaults to true (emits check).
     }
 
     /**
@@ -2286,6 +2489,8 @@ public class CodeAnalyzer extends NodeVisitor {
                             Property.VARIABLE_DOC, true, new HashSet<>(), true);
         } else if (nodeBuilder instanceof WaitDataBuilder) {
             // Variable/type info is embedded in the dataWaits property — skip generic handling
+        } else if (nodeBuilder instanceof BuiltinActivityBuilder) {
+            // TYPE_KEY and VARIABLE_KEY already added by populateBuiltinActivityProperties — skip
         } else {
             nodeBuilder.properties().dataVariable(this.typedBindingPatternNode, implicit, new HashSet<>());
         }
