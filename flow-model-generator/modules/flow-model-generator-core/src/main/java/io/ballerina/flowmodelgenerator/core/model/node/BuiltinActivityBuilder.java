@@ -255,13 +255,13 @@ public class BuiltinActivityBuilder extends NodeBuilder {
                 .name(strategy.activityFunctionSymbol())
                 .keyword(SyntaxKind.COMMA_TOKEN);
 
-        // Args record: { connection: <c>, <strategy args>, t: <T> (REST only) }
+        // Args record: { connection: <c>, <strategy args> }
+        // NOTE: callRestAPI has `typedesc<anydata> t = <>` but this is a contextual-inference
+        // parameter — the type is inferred from the LHS assignment (e.g. `json result = check
+        // ctx->callActivity(...)`) and must NOT be passed explicitly in the args record.
         List<String> argEntries = new ArrayList<>();
         argEntries.add("connection: " + connection);
         argEntries.addAll(strategy.getCallActivityArgs(sourceBuilder));
-        if (databindingType != null) {
-            argEntries.add("t: " + databindingType);
-        }
 
         sourceBuilder.token()
                 .keyword(SyntaxKind.OPEN_BRACE_TOKEN)
@@ -281,6 +281,15 @@ public class BuiltinActivityBuilder extends NodeBuilder {
         }
 
         return sourceBuilder.build();
+    }
+
+    /**
+     * Returns the strategy instance for the given builtin symbol ({@code "REST"},
+     * {@code "SOAP"}, or {@code "EMAIL"}), or {@code null} if the symbol is not recognised.
+     * Used by {@code CodeAnalyzer} when re-populating diagram node properties from source.
+     */
+    public static BuiltinActivityStrategy getStrategy(String symbol) {
+        return symbol != null ? STRATEGY_MAP.get(symbol) : null;
     }
 
     private BuiltinActivityStrategy resolveStrategy(Codedata codedata) {
