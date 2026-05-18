@@ -168,9 +168,11 @@ import io.ballerina.flowmodelgenerator.core.model.node.ShortTermMemoryStoreBuild
 import io.ballerina.flowmodelgenerator.core.model.node.StartBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.VariableBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.VectorStoreBuilder;
-import io.ballerina.flowmodelgenerator.core.model.node.BuiltinActivityBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.BuiltinActivityStrategy;
+import io.ballerina.flowmodelgenerator.core.model.node.builtin.EmailActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.RestActivityStrategy;
+import io.ballerina.flowmodelgenerator.core.model.node.builtin.SoapActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.WaitBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.WaitDataBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.XmlPayloadBuilder;
@@ -195,6 +197,8 @@ import io.ballerina.tools.text.TextDocument;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.commons.workspace.WorkspaceManager;
 
+import io.ballerina.flowmodelgenerator.core.model.ItemOption;
+import io.ballerina.flowmodelgenerator.core.model.Option;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -215,11 +219,8 @@ import java.util.stream.Collectors;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.ACTIVITY_MODULE;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.AWAIT_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_EMAIL_FUNCTION;
-import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_EMAIL_SYMBOL;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_REST_FUNCTION;
-import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_REST_SYMBOL;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_SOAP_FUNCTION;
-import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_SOAP_SYMBOL;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.CALL_ACTIVITY_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.RUN_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.SEND_DATA_METHOD_NAME;
@@ -276,6 +277,7 @@ public class CodeAnalyzer extends NodeVisitor {
     private final List<FlowNode> flowNodeList;
     private final Stack<NodeBuilder> flowNodeBuilderStack;
     private TypedBindingPatternNode typedBindingPatternNode;
+    private boolean currentNodeIsBuiltinActivity = false;
     private static final String AI_AGENT = "ai";
     public static final String ICON_PATH = CommonUtils.generateIcon(BALLERINA_ORG_NAME, "mcp", "0.4.2");
     public static final String MCP_TOOL_KIT = "McpToolKit";
@@ -473,12 +475,7 @@ public class CodeAnalyzer extends NodeVisitor {
             startNode(NodeKind.AGENT_CALL, expressionNode.parent());
             populateAgentMetaData(expressionNode, classSymbol);
         } else if (isWorkflowCtxOperation(remoteMethodCallActionNode, classSymbol, CALL_ACTIVITY_METHOD_NAME)) {
-            String builtinSymbol = resolveBuiltinActivitySymbol(remoteMethodCallActionNode.arguments());
-            if (builtinSymbol != null) {
-                startNode(NodeKind.BUILTIN_ACTIVITY, expressionNode.parent());
-            } else {
-                startNode(NodeKind.ACTIVITY_CALL, expressionNode.parent());
-            }
+            startNode(NodeKind.ACTIVITY_CALL, expressionNode.parent());
         } else if (isWorkflowCtxOperation(remoteMethodCallActionNode, classSymbol, AWAIT_METHOD_NAME)) {
             // Use the enclosing variable declaration's line range when present so workflow compiler
             // plugin diagnostics on the typed binding pattern (e.g. WORKFLOW_123 on non-nilable tuple
@@ -494,11 +491,13 @@ public class CodeAnalyzer extends NodeVisitor {
         if (isWorkflowCtxOperation(remoteMethodCallActionNode, classSymbol, CALL_ACTIVITY_METHOD_NAME)) {
             String builtinSymbol = resolveBuiltinActivitySymbol(remoteMethodCallActionNode.arguments());
             if (builtinSymbol != null) {
-                // BUILTIN_ACTIVITY: set strategy symbol directly; skip overrideSymbolFromFirstArg
-                // so the "REST"/"SOAP"/"EMAIL" key is preserved for BuiltinActivityBuilder.
+                // Builtin: symbol is the actual function name (callRestAPI/callSoapAPI/sendEmail).
                 nodeBuilder.codedata().symbol(builtinSymbol);
+                nodeBuilder.codedata().module(ACTIVITY_MODULE);
+                currentNodeIsBuiltinActivity = true;
                 populateBuiltinActivityProperties(remoteMethodCallActionNode, builtinSymbol);
             } else {
+                currentNodeIsBuiltinActivity = false;
                 overrideSymbolFromFirstArg(remoteMethodCallActionNode.arguments());
                 populateActivityCallProperties(remoteMethodCallActionNode);
             }
@@ -853,11 +852,11 @@ public class CodeAnalyzer extends NodeVisitor {
             return null;
         }
         if (BUILTIN_REST_FUNCTION.equals(functionName)) {
-            return BUILTIN_REST_SYMBOL;
+            return BUILTIN_REST_FUNCTION;
         } else if (BUILTIN_SOAP_FUNCTION.equals(functionName)) {
-            return BUILTIN_SOAP_SYMBOL;
+            return BUILTIN_SOAP_FUNCTION;
         } else if (BUILTIN_EMAIL_FUNCTION.equals(functionName)) {
-            return BUILTIN_EMAIL_SYMBOL;
+            return BUILTIN_EMAIL_FUNCTION;
         }
         return null;
     }
@@ -966,33 +965,42 @@ public class CodeAnalyzer extends NodeVisitor {
     }
 
     /**
-     * Populates form properties for a BUILTIN_ACTIVITY node from the existing source.
+     * Populates form properties for a builtin activity call node (callRestAPI/callSoapAPI/sendEmail)
+     * from the existing source.
      * <p>
      * Unlike {@link #populateActivityCallProperties}, this method:
      * <ul>
      *   <li>does NOT create an ADVANCED_PARAM_KEY nested structure,</li>
-     *   <li>stores connection under {@link Property#CONNECTION_KEY} ("connection") directly so that
-     *       {@code BuiltinActivityBuilder.toSource()} can read it back — using
+     *   <li>stores connection under {@link Property#CONNECTION_KEY} ("connection") directly — using
      *       {@code FlowNodeUtil.getPropertyKey("connection")} would produce "$connection" because
      *       "connection" is in RESERVED_PROPERTY_KEYS, causing a key mismatch, and</li>
      *   <li>strips outer Ballerina string-literal quotes from the method value so it matches the
      *       DROPDOWN_CHOICE option expected by the REST-activity form (e.g. {@code GET}, not
      *       {@code "GET"}).</li>
      * </ul>
-     * {@link Property#TYPE_KEY} and {@link Property#VARIABLE_KEY} are added later by
-     * {@code handleVariableNode} → {@code dataVariable()}.
+     * {@link Property#TYPE_KEY} and {@link Property#VARIABLE_KEY} are added here for REST/SOAP;
+     * {@code handleVariableNode} skips generic {@code dataVariable()} for these nodes.
      *
      * @param callNode the {@code ctx->callActivity(...)} call node
      */
+    /**
+     * Populates form properties for a builtin activity call node (callRestAPI/callSoapAPI/sendEmail)
+     * from the existing source.
+     *
+     * <p>Uses a two-pass approach to preserve the exact property shapes defined by each strategy:
+     * <ol>
+     *   <li>Parse all field values from the source record into a flat map (normalising keyword-escaped
+     *       keys like {@code 'from} → {@code from}, and expanding the email {@code options} record
+     *       into separate {@code cc}/{@code bcc} entries).</li>
+     *   <li>Rebuild every property with the same type/metadata as the creation template, but filled
+     *       with the values read from source — so DROPDOWN_CHOICE, dual TEXT/EXPRESSION, hidden, and
+     *       advanced flags are all preserved when the diagram reloads.</li>
+     * </ol>
+     */
     private void populateBuiltinActivityProperties(RemoteMethodCallActionNode callNode, String builtinSymbol) {
-        // Clear all properties added by setFunctionProperties (callActivity params, connection, etc.)
-        // so only the BUILTIN_ACTIVITY-specific form fields remain.
         nodeBuilder.properties().build().clear();
 
         SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
-
-        // The second positional arg is the args record literal, e.g.:
-        // {connection: httpClient, method: "GET", path: string `/hello`, ...}
         if (args.size() <= 1) {
             return;
         }
@@ -1005,76 +1013,72 @@ public class CodeAnalyzer extends NodeVisitor {
             return;
         }
 
-        // Resolve the strategy once so per-field decisions can use its metadata.
-        BuiltinActivityStrategy strategy = BuiltinActivityBuilder.getStrategy(builtinSymbol);
+        BuiltinActivityStrategy strategy = ActivityCallBuilder.getBuiltinStrategy(builtinSymbol);
+
+        // Pass 1: collect source field values, normalising keys and expanding nested records.
+        Map<String, String> srcValues = new LinkedHashMap<>();
+        // Email EmailOptions fields expanded from the nested options: {...} record
+        Map<String, String> emailOptions = new LinkedHashMap<>();
 
         for (MappingFieldNode field : ((MappingConstructorExpressionNode) secondExpr).fields()) {
             if (!(field instanceof SpecificFieldNode sf)) {
                 continue;
             }
-            String key = sf.fieldName().toString().trim();
+            // Strip leading single-quote from Ballerina keyword-escaped identifiers (e.g. 'from → from).
+            String rawKey = sf.fieldName().toString().trim();
+            String key = rawKey.startsWith("'") ? rawKey.substring(1) : rawKey;
             String value = sf.valueExpr().map(n -> n.toSourceCode().strip()).orElse("");
 
-            if (Property.CONNECTION_KEY.equals(key)) {
-                // Use CONNECTION type (connection-picker widget) matching the creation template.
-                // Pass the actual connection name as the placeholder so the picker shows the
-                // existing connection as the selected value.
-                nodeBuilder.properties().connectionSelector(
-                        value,
-                        strategy != null ? strategy.searchNodesKind() : null,
-                        strategy != null ? strategy.connectors() : null
-                );
-            } else if (RestActivityStrategy.PATH_KEY.equals(key)) {
-                // Detect a double-quoted string literal (e.g. "/hello") so the field is shown
-                // in TEXT mode with the bare path, matching how the creation form behaves.
-                boolean isStringLiteral = value.startsWith("\"") && value.endsWith("\"")
-                        && value.length() >= 2;
-                String displayValue = isStringLiteral
-                        ? value.substring(1, value.length() - 1)
-                        : value;
-                nodeBuilder.properties().custom()
-                        .metadata()
-                            .label("Path")
-                            .description("Resource path appended to the connection's base URL"
-                                    + " (e.g., \"/users/1\")")
-                            .stepOut()
-                        .type().fieldType(Property.ValueType.TEXT).ballerinaType("string")
-                            .selected(isStringLiteral).stepOut()
-                        .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string")
-                            .selected(!isStringLiteral).stepOut()
-                        .value(displayValue)
-                        .placeholder("/users/1")
-                        .editable(true)
-                        .optional(true)
-                        .stepOut()
-                        .addProperty(key);
-            } else {
-                // For DROPDOWN_CHOICE fields (REST method): strip surrounding Ballerina string-literal
-                // quotes so the stored value (e.g. GET) matches the dropdown option, not "GET".
-                if (RestActivityStrategy.METHOD_KEY.equals(key) && value.length() >= 2
-                        && value.startsWith("\"") && value.endsWith("\"")) {
-                    value = value.substring(1, value.length() - 1);
+            // Email: expand options: {...} into flat entries keyed by EmailOptions field name.
+            if (BUILTIN_EMAIL_FUNCTION.equals(builtinSymbol) && "options".equals(key)
+                    && sf.valueExpr().isPresent()
+                    && sf.valueExpr().get().kind() == SyntaxKind.MAPPING_CONSTRUCTOR) {
+                MappingConstructorExpressionNode optRecord =
+                        (MappingConstructorExpressionNode) sf.valueExpr().get();
+                for (MappingFieldNode optField : optRecord.fields()) {
+                    if (!(optField instanceof SpecificFieldNode optSf)) {
+                        continue;
+                    }
+                    String optKey = optSf.fieldName().toString().trim();
+                    String optVal = optSf.valueExpr().map(n -> n.toSourceCode().strip()).orElse("");
+                    emailOptions.put(optKey, optVal);
                 }
-                nodeBuilder.properties().custom()
-                        .metadata()
-                            .label(key)
-                            .description("")
-                            .stepOut()
-                        .type()
-                            .fieldType(Property.ValueType.EXPRESSION)
-                            .selected(true)
-                            .stepOut()
-                        .value(value)
-                        .editable()
-                        .stepOut()
-                        .addProperty(key);
+            } else {
+                srcValues.put(key, value);
             }
         }
-        // Add TYPE_KEY and VARIABLE_KEY with labels matching the BUILTIN_ACTIVITY template, so
-        // the form shows "Databinding" and "Result" with the values from the existing source.
+
+        // Pass 2: rebuild properties with template-correct shapes and source values.
+
+        // Connection — always present
+        String connValue = srcValues.getOrDefault(Property.CONNECTION_KEY, "NEW_CONNECTION");
+        nodeBuilder.properties().connectionSelector(
+                connValue,
+                strategy != null ? strategy.searchNodesKind() : null,
+                strategy != null ? strategy.connectors() : null);
+
+        switch (builtinSymbol) {
+            case BUILTIN_REST_FUNCTION -> populateRestProperties(srcValues);
+            case BUILTIN_SOAP_FUNCTION -> populateSoapProperties(srcValues);
+            case BUILTIN_EMAIL_FUNCTION -> populateEmailProperties(srcValues, emailOptions);
+            default -> {
+                // Unknown builtin — best-effort: emit remaining fields as expressions
+                for (Map.Entry<String, String> e : srcValues.entrySet()) {
+                    if (Property.CONNECTION_KEY.equals(e.getKey())) {
+                        continue;
+                    }
+                    nodeBuilder.properties().custom()
+                            .metadata().label(e.getKey()).description("").stepOut()
+                            .type().fieldType(Property.ValueType.EXPRESSION).selected(true).stepOut()
+                            .value(e.getValue()).editable().stepOut()
+                            .addProperty(e.getKey());
+                }
+            }
+        }
+
+        // TYPE_KEY and VARIABLE_KEY from the LHS binding pattern
         if (typedBindingPatternNode != null) {
-            if (BUILTIN_REST_SYMBOL.equals(builtinSymbol)) {
-                // REST: Databinding (TYPE_KEY) + Result (VARIABLE_KEY)
+            if (BUILTIN_REST_FUNCTION.equals(builtinSymbol)) {
                 String typeText = typedBindingPatternNode.typeDescriptor().toSourceCode().strip();
                 nodeBuilder.properties().custom()
                         .metadata()
@@ -1082,16 +1086,12 @@ public class CodeAnalyzer extends NodeVisitor {
                             .description("Response data binding type (e.g., json, xml, record type)")
                             .stepOut()
                         .value(typeText)
-                        .type()
-                            .fieldType(Property.ValueType.TYPE)
-                            .selected(true)
-                            .stepOut()
+                        .type().fieldType(Property.ValueType.TYPE).selected(true).stepOut()
                         .editable(true)
                         .stepOut()
                         .addProperty(Property.TYPE_KEY);
             }
-            if (BUILTIN_REST_SYMBOL.equals(builtinSymbol) || BUILTIN_SOAP_SYMBOL.equals(builtinSymbol)) {
-                // REST and SOAP: Result (VARIABLE_KEY)
+            if (BUILTIN_REST_FUNCTION.equals(builtinSymbol) || BUILTIN_SOAP_FUNCTION.equals(builtinSymbol)) {
                 String varText = typedBindingPatternNode.bindingPattern().toSourceCode().strip();
                 nodeBuilder.properties().custom()
                         .metadata()
@@ -1099,17 +1099,190 @@ public class CodeAnalyzer extends NodeVisitor {
                             .description(Property.RESULT_DOC)
                             .stepOut()
                         .value(varText)
-                        .type()
-                            .fieldType(Property.ValueType.IDENTIFIER)
-                            .selected(true)
-                            .stepOut()
+                        .type().fieldType(Property.ValueType.IDENTIFIER).selected(true).stepOut()
                         .editable(true)
                         .stepOut()
                         .addProperty(Property.VARIABLE_KEY);
             }
-            // EMAIL: no result variable or type field
         }
-        // checkError is not set here; BuiltinActivityBuilder.toSource() defaults to true (emits check).
+        // checkError defaults to true; ActivityCallBuilder.toSourceBuiltin() uses that default.
+    }
+
+    /** Rebuilds REST-specific form properties from source values, preserving template shapes. */
+    private void populateRestProperties(Map<String, String> src) {
+        // method — DROPDOWN_CHOICE; strip quotes carried over from source ("GET" → GET)
+        String method = src.getOrDefault(RestActivityStrategy.METHOD_KEY, "GET");
+        if (method.length() >= 2 && method.startsWith("\"") && method.endsWith("\"")) {
+            method = method.substring(1, method.length() - 1);
+        }
+        List<Option> methodOptions = List.of(
+                new Option("GET", "GET"), new Option("POST", "POST"),
+                new Option("PUT", "PUT"), new Option("DELETE", "DELETE"),
+                new Option("PATCH", "PATCH"));
+
+        Property messageSubProp = new Property.Builder<Void>(null)
+                .metadata().label("Message")
+                    .description("Request body payload (any HTTP-compatible type).").stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType("http:RequestMessage").selected(true).stepOut()
+                .value("").editable(true).optional(true).build();
+
+        Map<String, Map<String, Property>> dynFields = new LinkedHashMap<>();
+        dynFields.put("GET", Map.of());
+        dynFields.put("POST", Map.of("message", messageSubProp));
+        dynFields.put("PUT",  Map.of("message", messageSubProp));
+        dynFields.put("DELETE", Map.of());
+        dynFields.put("PATCH", Map.of("message", messageSubProp));
+
+        nodeBuilder.properties().custom()
+                .metadata().label("Method").description("HTTP method to invoke").stepOut()
+                .type().fieldType(Property.ValueType.DROPDOWN_CHOICE)
+                    .options(methodOptions).selected(true).stepOut()
+                .codedata().kind(ParameterData.Kind.REQUIRED.name()).stepOut()
+                .value(method).editable(true)
+                .itemOptions(ItemOption.from(methodOptions))
+                .dynamicFormFields(dynFields)
+                .stepOut().addProperty(RestActivityStrategy.METHOD_KEY);
+
+        // path — TEXT/EXPRESSION; detect existing string-literal to set mode correctly
+        addDualTypePathProperty(src, RestActivityStrategy.PATH_KEY,
+                "Path", "Resource path appended to the connection's base URL (e.g., \"/users/1\")",
+                "/users/1", false);
+
+        // message — hidden EXPRESSION (storage for dynamic POST/PUT/PATCH field)
+        String message = src.getOrDefault(RestActivityStrategy.MESSAGE_KEY, "");
+        nodeBuilder.properties().custom()
+                .metadata().label("Message")
+                    .description("Request body payload (for POST, PUT, PATCH)").stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType("http:RequestMessage").selected(true).stepOut()
+                .value(message).editable(true).optional(true).hidden(true)
+                .stepOut().addProperty(RestActivityStrategy.MESSAGE_KEY);
+
+        // headers — advanced EXPRESSION
+        String headers = src.getOrDefault(RestActivityStrategy.HEADERS_KEY, "");
+        nodeBuilder.properties().custom()
+                .metadata().label("Headers").description("Optional request headers").stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType("map<string|string[]>?").selected(true).stepOut()
+                .value(headers).editable(true).optional(true).advanced(true)
+                .stepOut().addProperty(RestActivityStrategy.HEADERS_KEY);
+    }
+
+    /** Rebuilds SOAP-specific form properties from source values, preserving template shapes. */
+    private void populateSoapProperties(Map<String, String> src) {
+        // body — REQUIRED EXPRESSION
+        String body = src.getOrDefault(SoapActivityStrategy.BODY_KEY, "");
+        nodeBuilder.properties().custom()
+                .metadata().label("Body").description("SOAP envelope as xml").stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("xml").selected(true).stepOut()
+                .codedata().kind(ParameterData.Kind.REQUIRED.name()).stepOut()
+                .value(body).editable(true)
+                .stepOut().addProperty(SoapActivityStrategy.BODY_KEY);
+
+        // action — dual TEXT/EXPRESSION (like path: detect string literals)
+        addDualTypePathProperty(src, SoapActivityStrategy.ACTION_KEY,
+                "Action",
+                "SOAPAction header. Required for SOAP 1.1 endpoints; optional for SOAP 1.2.",
+                "http://tempuri.org/Add", true);
+
+        // headers — advanced EXPRESSION
+        String headers = src.getOrDefault(SoapActivityStrategy.HEADERS_KEY, "");
+        nodeBuilder.properties().custom()
+                .metadata().label("Headers").description("Additional HTTP headers").stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType("map<string|string[]>").selected(true).stepOut()
+                .value(headers).editable(true).optional(true).advanced(true)
+                .stepOut().addProperty(SoapActivityStrategy.HEADERS_KEY);
+
+        // path — TEXT/EXPRESSION, advanced
+        addDualTypePathProperty(src, SoapActivityStrategy.PATH_KEY,
+                "Path", "Optional resource path appended to the connection's base URL",
+                "", true);
+    }
+
+    /** Rebuilds Email-specific form properties from source values, preserving template shapes. */
+    private void populateEmailProperties(Map<String, String> src, Map<String, String> opts) {
+        addRequiredExpressionProperty(src, EmailActivityStrategy.TO_KEY,
+                "To", "Recipient email address (or list of addresses)", "string|string[]");
+        addRequiredExpressionProperty(src, EmailActivityStrategy.SUBJECT_KEY,
+                "Subject", "Email subject line", "string");
+        addRequiredExpressionProperty(src, EmailActivityStrategy.FROM_KEY,
+                "From", "Sender address", "string");
+        addRequiredExpressionProperty(src, EmailActivityStrategy.BODY_KEY,
+                "Body", "Plain-text body of the email", "string");
+
+        // EmailOptions fields — all optional, advanced
+        addOptionalAdvancedExpression(opts, "cc",
+                EmailActivityStrategy.CC_KEY, "CC", "Optional CC recipient(s)", "string|string[]?");
+        addOptionalAdvancedExpression(opts, "bcc",
+                EmailActivityStrategy.BCC_KEY, "BCC", "Optional BCC recipient(s)", "string|string[]?");
+        addOptionalAdvancedExpression(opts, "htmlBody",
+                EmailActivityStrategy.HTML_BODY_KEY, "HTML Body",
+                "Optional HTML body (sent alongside the plain-text body)", "string?");
+        addOptionalAdvancedExpression(opts, "contentType",
+                EmailActivityStrategy.CONTENT_TYPE_KEY, "Content Type",
+                "MIME content type override (e.g., \"text/plain\")", "string?");
+        addOptionalAdvancedExpression(opts, "headers",
+                EmailActivityStrategy.EMAIL_HEADERS_KEY, "Email Headers",
+                "Additional mail headers as map<string>", "map<string>?");
+        addOptionalAdvancedExpression(opts, "replyTo",
+                EmailActivityStrategy.REPLY_TO_KEY, "Reply To",
+                "Optional Reply-To address(es)", "string|string[]?");
+        addOptionalAdvancedExpression(opts, "sender",
+                EmailActivityStrategy.SENDER_KEY, "Sender",
+                "Sender address (used when the envelope sender differs from From)", "string?");
+    }
+
+    /** Adds an optional advanced EXPRESSION property, reading its value from opts by optKey. */
+    private void addOptionalAdvancedExpression(Map<String, String> opts, String optKey,
+                                               String propKey, String label,
+                                               String description, String ballerinaType) {
+        String value = opts != null ? opts.getOrDefault(optKey, "") : "";
+        nodeBuilder.properties().custom()
+                .metadata().label(label).description(description).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType(ballerinaType).selected(true).stepOut()
+                .value(value).editable(true).optional(true).advanced(true)
+                .stepOut().addProperty(propKey);
+    }
+
+    /**
+     * Adds a dual TEXT/EXPRESSION path-style property. The TEXT type is selected when the source
+     * value is a Ballerina double-quoted string literal; EXPRESSION otherwise.
+     *
+     * @param advanced {@code true} to mark the property as advanced (for SOAP path/action)
+     */
+    private void addDualTypePathProperty(Map<String, String> src, String key,
+                                          String label, String description,
+                                          String placeholder, boolean advanced) {
+        String value = src.getOrDefault(key, "");
+        boolean isStringLit = value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"");
+        String displayValue = isStringLit ? value.substring(1, value.length() - 1) : value;
+
+        nodeBuilder.properties().custom()
+                .metadata().label(label).description(description).stepOut()
+                .type().fieldType(Property.ValueType.TEXT).ballerinaType("string")
+                    .selected(isStringLit).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string")
+                    .selected(!isStringLit).stepOut()
+                .value(displayValue).placeholder(placeholder)
+                .editable(true).optional(true).advanced(advanced)
+                .stepOut().addProperty(key);
+    }
+
+    /** Adds a REQUIRED EXPRESSION property for simple string/string[] fields. */
+    private void addRequiredExpressionProperty(Map<String, String> src,
+                                                String key, String label,
+                                                String description, String ballerinaType) {
+        String value = src.getOrDefault(key, "");
+        nodeBuilder.properties().custom()
+                .metadata().label(label).description(description).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION)
+                    .ballerinaType(ballerinaType).selected(true).stepOut()
+                .codedata().kind(ParameterData.Kind.REQUIRED.name()).stepOut()
+                .value(value).editable(true)
+                .stepOut().addProperty(key);
     }
 
     /**
@@ -2489,8 +2662,9 @@ public class CodeAnalyzer extends NodeVisitor {
                             Property.VARIABLE_DOC, true, new HashSet<>(), true);
         } else if (nodeBuilder instanceof WaitDataBuilder) {
             // Variable/type info is embedded in the dataWaits property — skip generic handling
-        } else if (nodeBuilder instanceof BuiltinActivityBuilder) {
+        } else if (currentNodeIsBuiltinActivity) {
             // TYPE_KEY and VARIABLE_KEY already added by populateBuiltinActivityProperties — skip
+            currentNodeIsBuiltinActivity = false;
         } else {
             nodeBuilder.properties().dataVariable(this.typedBindingPatternNode, implicit, new HashSet<>());
         }

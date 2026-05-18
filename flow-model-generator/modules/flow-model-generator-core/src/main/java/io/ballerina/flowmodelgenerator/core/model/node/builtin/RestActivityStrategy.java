@@ -83,6 +83,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                     .ballerinaType("http:RequestMessage").selected(true).stepOut()
                 .value("")
                 .editable(true)
+                .optional(true)
                 .build();
 
         Map<String, Map<String, Property>> methodDynamicFields = new LinkedHashMap<>();
@@ -140,7 +141,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(MESSAGE_KEY);
 
-        // Headers — optional map<string|string[]>
+        // Headers — optional map<string|string[]>, advanced
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Headers")
@@ -151,6 +152,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 .value("")
                 .editable(true)
                 .optional(true)
+                .advanced(true)
                 .stepOut()
                 .addProperty(HEADERS_KEY);
     }

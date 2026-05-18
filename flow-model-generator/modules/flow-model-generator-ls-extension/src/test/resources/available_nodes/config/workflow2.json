@@ -205,7 +205,9 @@
           },
           "codedata": {
             "node": "BUILTIN_ACTIVITY",
-            "symbol": "REST"
+            "org": "ballerina",
+            "module": "workflow.activity",
+            "symbol": "callRestAPI"
           },
           "enabled": true
         },
@@ -216,7 +218,9 @@
           },
           "codedata": {
             "node": "BUILTIN_ACTIVITY",
-            "symbol": "SOAP"
+            "org": "ballerina",
+            "module": "workflow.activity",
+            "symbol": "callSoapAPI"
           },
           "enabled": true
         },
@@ -227,7 +231,9 @@
           },
           "codedata": {
             "node": "BUILTIN_ACTIVITY",
-            "symbol": "EMAIL"
+            "org": "ballerina",
+            "module": "workflow.activity",
+            "symbol": "sendEmail"
           },
           "enabled": true
         }

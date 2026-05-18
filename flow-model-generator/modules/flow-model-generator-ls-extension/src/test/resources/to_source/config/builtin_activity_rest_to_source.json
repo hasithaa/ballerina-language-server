@@ -8,10 +8,10 @@
       "description": "Call a REST API endpoint as a workflow activity"
     },
     "codedata": {
-      "node": "BUILTIN_ACTIVITY",
+      "node": "ACTIVITY_CALL",
       "org": "ballerina",
-      "module": "workflow",
-      "symbol": "REST",
+      "module": "workflow.activity",
+      "symbol": "callRestAPI",
       "lineRange": {
         "fileName": "functions.bal",
         "startLine": {

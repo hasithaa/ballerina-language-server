@@ -40,21 +40,28 @@ import static io.ballerina.modelgenerator.commons.ParameterData.Kind.REQUIRED;
  */
 public class EmailActivityStrategy implements BuiltinActivityStrategy {
 
-    // Property keys (match the parameter names of activity:sendEmail)
+    // Property keys (match the parameter names / EmailOptions fields of activity:sendEmail)
     public static final String TO_KEY = "to";
     public static final String SUBJECT_KEY = "subject";
-    public static final String BODY_KEY = "body";
     public static final String FROM_KEY = "from";
+    public static final String BODY_KEY = "body";
+    // EmailOptions fields (wrapped in options: {...} in source)
     public static final String CC_KEY = "cc";
     public static final String BCC_KEY = "bcc";
+    public static final String HTML_BODY_KEY = "htmlBody";
+    public static final String CONTENT_TYPE_KEY = "contentType";
+    public static final String EMAIL_HEADERS_KEY = "emailHeaders";
+    public static final String REPLY_TO_KEY = "replyTo";
+    public static final String SENDER_KEY = "sender";
 
-    // Ballerina parameter names — `from` is a reserved keyword, must be quoted
+    // Ballerina parameter name — `from` is a reserved keyword, must be quoted
     private static final String FROM_PARAM = "'from";
 
     private static final String STRING_TYPE = "string";
     private static final String STRING_OR_STRING_ARRAY = "string|string[]";
     private static final String OPTIONAL_STRING = "string?";
     private static final String OPTIONAL_STRING_OR_STRING_ARRAY = "string|string[]?";
+    private static final String OPTIONAL_MAP_STRING = "map<string>?";
 
     private static final String STRATEGY_LABEL = "Send Email";
     private static final String STRATEGY_DESCRIPTION =
@@ -105,19 +112,20 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(BODY_KEY);
 
-        // From — optional string?
+        // From — required string (Ballerina keyword, quoted as 'from in source)
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("From")
-                    .description("Optional sender address; if omitted, the SMTP client default applies")
+                    .description("Sender address")
                     .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(OPTIONAL_STRING)
-                    .selected(true).stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(STRING_TYPE).selected(true).stepOut()
+                .codedata().kind(REQUIRED.name()).stepOut()
                 .value("")
                 .editable(true)
-                .optional(true)
                 .stepOut()
                 .addProperty(FROM_KEY);
+
+        // --- EmailOptions fields (all optional, advanced) ---
 
         // CC — optional string|string[]?
         nodeBuilder.properties().custom()
@@ -130,6 +138,7 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
                 .value("")
                 .editable(true)
                 .optional(true)
+                .advanced(true)
                 .stepOut()
                 .addProperty(CC_KEY);
 
@@ -144,8 +153,80 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
                 .value("")
                 .editable(true)
                 .optional(true)
+                .advanced(true)
                 .stepOut()
                 .addProperty(BCC_KEY);
+
+        // HTML Body — optional string?
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("HTML Body")
+                    .description("Optional HTML body (sent alongside the plain-text body)")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(OPTIONAL_STRING).selected(true).stepOut()
+                .value("")
+                .editable(true)
+                .optional(true)
+                .advanced(true)
+                .stepOut()
+                .addProperty(HTML_BODY_KEY);
+
+        // Content Type — optional string?
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Content Type")
+                    .description("MIME content type override (e.g., \"text/plain\")")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(OPTIONAL_STRING).selected(true).stepOut()
+                .value("")
+                .editable(true)
+                .optional(true)
+                .advanced(true)
+                .stepOut()
+                .addProperty(CONTENT_TYPE_KEY);
+
+        // Headers — optional map<string>? (email-specific headers)
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Email Headers")
+                    .description("Additional mail headers as map<string>")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(OPTIONAL_MAP_STRING).selected(true).stepOut()
+                .value("")
+                .editable(true)
+                .optional(true)
+                .advanced(true)
+                .stepOut()
+                .addProperty(EMAIL_HEADERS_KEY);
+
+        // Reply-To — optional string|string[]?
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Reply To")
+                    .description("Optional Reply-To address(es)")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(OPTIONAL_STRING_OR_STRING_ARRAY)
+                    .selected(true).stepOut()
+                .value("")
+                .editable(true)
+                .optional(true)
+                .advanced(true)
+                .stepOut()
+                .addProperty(REPLY_TO_KEY);
+
+        // Sender — optional string?
+        nodeBuilder.properties().custom()
+                .metadata()
+                    .label("Sender")
+                    .description("Sender address (used when the envelope sender differs from From)")
+                    .stepOut()
+                .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType(OPTIONAL_STRING).selected(true).stepOut()
+                .value("")
+                .editable(true)
+                .optional(true)
+                .advanced(true)
+                .stepOut()
+                .addProperty(SENDER_KEY);
     }
 
     @Override
@@ -177,12 +258,23 @@ public class EmailActivityStrategy implements BuiltinActivityStrategy {
     public List<String> getCallActivityArgs(SourceBuilder sourceBuilder) {
         Map<String, Property> props = sourceBuilder.flowNode.properties();
         List<String> args = new ArrayList<>();
+        // Required positional params (order matches sendEmail signature)
         addArg(args, TO_KEY, "to", props);
         addArg(args, SUBJECT_KEY, "subject", props);
-        addArg(args, BODY_KEY, "body", props);
         addArg(args, FROM_KEY, FROM_PARAM, props);
-        addArg(args, CC_KEY, "cc", props);
-        addArg(args, BCC_KEY, "bcc", props);
+        addArg(args, BODY_KEY, "body", props);
+        // Optional EmailOptions fields — nested in options: {...}
+        List<String> optFields = new ArrayList<>();
+        addArg(optFields, CC_KEY, "cc", props);
+        addArg(optFields, BCC_KEY, "bcc", props);
+        addArg(optFields, HTML_BODY_KEY, "htmlBody", props);
+        addArg(optFields, CONTENT_TYPE_KEY, "contentType", props);
+        addArg(optFields, EMAIL_HEADERS_KEY, "headers", props);
+        addArg(optFields, REPLY_TO_KEY, "replyTo", props);
+        addArg(optFields, SENDER_KEY, "sender", props);
+        if (!optFields.isEmpty()) {
+            args.add("options: {" + String.join(", ", optFields) + "}");
+        }
         return args;
     }
 
