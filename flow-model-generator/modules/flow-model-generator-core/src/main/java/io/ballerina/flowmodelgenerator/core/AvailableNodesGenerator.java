@@ -494,20 +494,22 @@ public class AvailableNodesGenerator {
     private List<Item> getBuiltinActivityNodes() {
         List<Item> builtinNodes = new ArrayList<>();
         builtinNodes.add(buildBuiltinNode(
-                Workflow.BUILTIN_REST_LABEL, Workflow.BUILTIN_REST_DESCRIPTION, Workflow.BUILTIN_REST_SYMBOL));
+                Workflow.BUILTIN_REST_LABEL, Workflow.BUILTIN_REST_DESCRIPTION, Workflow.BUILTIN_REST_FUNCTION));
         builtinNodes.add(buildBuiltinNode(
-                Workflow.BUILTIN_SOAP_LABEL, Workflow.BUILTIN_SOAP_DESCRIPTION, Workflow.BUILTIN_SOAP_SYMBOL));
+                Workflow.BUILTIN_SOAP_LABEL, Workflow.BUILTIN_SOAP_DESCRIPTION, Workflow.BUILTIN_SOAP_FUNCTION));
         builtinNodes.add(buildBuiltinNode(
-                Workflow.BUILTIN_EMAIL_LABEL, Workflow.BUILTIN_EMAIL_DESCRIPTION, Workflow.BUILTIN_EMAIL_SYMBOL));
+                Workflow.BUILTIN_EMAIL_LABEL, Workflow.BUILTIN_EMAIL_DESCRIPTION, Workflow.BUILTIN_EMAIL_FUNCTION));
         return builtinNodes;
     }
 
-    private AvailableNode buildBuiltinNode(String label, String description, String symbol) {
+    private AvailableNode buildBuiltinNode(String label, String description, String functionSymbol) {
         return new AvailableNode(
                 new Metadata.Builder<>(null).label(label).description(description).build(),
                 new Codedata.Builder<>(null)
                         .node(NodeKind.BUILTIN_ACTIVITY)
-                        .symbol(symbol)
+                        .org(Workflow.WORKFLOW_ORG)
+                        .module(Workflow.ACTIVITY_MODULE)
+                        .symbol(functionSymbol)
                         .build(),
                 true
         );

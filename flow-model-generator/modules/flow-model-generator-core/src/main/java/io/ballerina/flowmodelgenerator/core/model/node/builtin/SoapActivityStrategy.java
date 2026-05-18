@@ -85,7 +85,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(ACTION_KEY);
 
-        // Headers — optional map<string|string[]>
+        // Headers — optional map<string|string[]>, advanced
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Headers")
@@ -96,10 +96,11 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
                 .value("")
                 .editable(true)
                 .optional(true)
+                .advanced(true)
                 .stepOut()
                 .addProperty(HEADERS_KEY);
 
-        // Path — optional, appended to endpoint URL
+        // Path — optional, appended to endpoint URL, advanced
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Path")
@@ -110,6 +111,7 @@ public class SoapActivityStrategy implements BuiltinActivityStrategy {
                 .value("")
                 .editable(true)
                 .optional(true)
+                .advanced(true)
                 .stepOut()
                 .addProperty(PATH_KEY);
     }
