@@ -1126,20 +1126,6 @@ public class CodeAnalyzer extends NodeVisitor {
                 new Option("PUT", "PUT"), new Option("DELETE", "DELETE"),
                 new Option("PATCH", "PATCH"));
 
-        Property messageSubProp = new Property.Builder<Void>(null)
-                .metadata().label("Message")
-                    .description("Request body payload (any HTTP-compatible type).").stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION)
-                    .ballerinaType("http:RequestMessage").selected(true).stepOut()
-                .value("").editable(true).optional(true).build();
-
-        Map<String, Map<String, Property>> dynFields = new LinkedHashMap<>();
-        dynFields.put("GET", Map.of());
-        dynFields.put("POST", Map.of("message", messageSubProp));
-        dynFields.put("PUT",  Map.of("message", messageSubProp));
-        dynFields.put("DELETE", Map.of());
-        dynFields.put("PATCH", Map.of("message", messageSubProp));
-
         nodeBuilder.properties().custom()
                 .metadata().label("Method").description("HTTP method to invoke").stepOut()
                 .type().fieldType(Property.ValueType.DROPDOWN_CHOICE)
@@ -1147,7 +1133,6 @@ public class CodeAnalyzer extends NodeVisitor {
                 .codedata().kind(ParameterData.Kind.REQUIRED.name()).stepOut()
                 .value(method).editable(true)
                 .itemOptions(ItemOption.from(methodOptions))
-                .dynamicFormFields(dynFields)
                 .stepOut().addProperty(RestActivityStrategy.METHOD_KEY);
 
         // path — TEXT/EXPRESSION; detect existing string-literal to set mode correctly
@@ -1155,14 +1140,14 @@ public class CodeAnalyzer extends NodeVisitor {
                 "Path", "Resource path appended to the connection's base URL (e.g., \"/users/1\")",
                 "/users/1", false);
 
-        // message — hidden EXPRESSION (storage for dynamic POST/PUT/PATCH field)
+        // message — optional body payload for POST/PUT/PATCH
         String message = src.getOrDefault(RestActivityStrategy.MESSAGE_KEY, "");
         nodeBuilder.properties().custom()
                 .metadata().label("Message")
                     .description("Request body payload (for POST, PUT, PATCH)").stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION)
                     .ballerinaType("http:RequestMessage").selected(true).stepOut()
-                .value(message).editable(true).optional(true).hidden(true)
+                .value(message).editable(true).optional(true)
                 .stepOut().addProperty(RestActivityStrategy.MESSAGE_KEY);
 
         // headers — advanced EXPRESSION
@@ -2339,17 +2324,18 @@ public class CodeAnalyzer extends NodeVisitor {
 
         String org = functionData.org();
         String packageName = functionData.packageName();
+        String moduleName = functionData.moduleName();
         String name = classSymbol.getName().orElse("");
         nodeBuilder
                 .metadata()
                     .label(kind == NodeKind.NEW_CONNECTION ?
-                        ConnectorUtil.getConnectorName(name, packageName) : packageName)
+                        ConnectorUtil.getConnectorName(name, moduleName) : moduleName)
                     .description(functionData.description())
                     .icon(CommonUtils.generateIcon(org, packageName, functionData.version()))
                     .stepOut()
                 .codedata()
                     .org(org)
-                    .module(packageName)
+                    .module(moduleName)
                     .object(name)
                     .symbol(NewConnectionBuilder.INIT_SYMBOL);
 

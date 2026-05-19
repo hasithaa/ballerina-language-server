@@ -101,70 +101,6 @@
         "codedata": {
           "kind": "REQUIRED"
         },
-        "dynamicFormFields": {
-          "GET": {},
-          "POST": {
-            "message": {
-              "metadata": {
-                "label": "Message",
-                "description": "Request body payload (any HTTP-compatible type)."
-              },
-              "types": [
-                {
-                  "fieldType": "EXPRESSION",
-                  "ballerinaType": "http:RequestMessage",
-                  "selected": true
-                }
-              ],
-              "value": "",
-              "optional": true,
-              "editable": true,
-              "advanced": false,
-              "hidden": false
-            }
-          },
-          "PUT": {
-            "message": {
-              "metadata": {
-                "label": "Message",
-                "description": "Request body payload (any HTTP-compatible type)."
-              },
-              "types": [
-                {
-                  "fieldType": "EXPRESSION",
-                  "ballerinaType": "http:RequestMessage",
-                  "selected": true
-                }
-              ],
-              "value": "",
-              "optional": true,
-              "editable": true,
-              "advanced": false,
-              "hidden": false
-            }
-          },
-          "DELETE": {},
-          "PATCH": {
-            "message": {
-              "metadata": {
-                "label": "Message",
-                "description": "Request body payload (any HTTP-compatible type)."
-              },
-              "types": [
-                {
-                  "fieldType": "EXPRESSION",
-                  "ballerinaType": "http:RequestMessage",
-                  "selected": true
-                }
-              ],
-              "value": "",
-              "optional": true,
-              "editable": true,
-              "advanced": false,
-              "hidden": false
-            }
-          }
-        },
         "itemOptions": [
           {
             "id": "GET",
@@ -191,7 +127,71 @@
             "content": "PATCH",
             "value": "PATCH"
           }
-        ]
+        ],
+        "dynamicFormFields": {
+          "GET": {},
+          "POST": {
+            "message": {
+              "metadata": {
+                "label": "Message",
+                "description": "Request body payload (for POST, PUT, PATCH)"
+              },
+              "types": [
+                {
+                  "fieldType": "EXPRESSION",
+                  "ballerinaType": "http:RequestMessage",
+                  "selected": true
+                }
+              ],
+              "value": "",
+              "optional": false,
+              "editable": true,
+              "advanced": false,
+              "hidden": false
+            }
+          },
+          "PUT": {
+            "message": {
+              "metadata": {
+                "label": "Message",
+                "description": "Request body payload (for POST, PUT, PATCH)"
+              },
+              "types": [
+                {
+                  "fieldType": "EXPRESSION",
+                  "ballerinaType": "http:RequestMessage",
+                  "selected": true
+                }
+              ],
+              "value": "",
+              "optional": false,
+              "editable": true,
+              "advanced": false,
+              "hidden": false
+            }
+          },
+          "DELETE": {},
+          "PATCH": {
+            "message": {
+              "metadata": {
+                "label": "Message",
+                "description": "Request body payload (for POST, PUT, PATCH)"
+              },
+              "types": [
+                {
+                  "fieldType": "EXPRESSION",
+                  "ballerinaType": "http:RequestMessage",
+                  "selected": true
+                }
+              ],
+              "value": "",
+              "optional": false,
+              "editable": true,
+              "advanced": false,
+              "hidden": false
+            }
+          }
+        }
       },
       "path": {
         "metadata": {
