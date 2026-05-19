@@ -65,7 +65,6 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
 
     @Override
     public void setFormProperties(NodeBuilder nodeBuilder, NodeBuilder.TemplateContext context) {
-        // Method — DROPDOWN_CHOICE with dynamicFormFields exposing message for POST/PUT/PATCH
         List<Option> methodOptions = List.of(
                 new Option(METHOD_GET, METHOD_GET),
                 new Option(METHOD_POST, METHOD_POST),
@@ -74,16 +73,16 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 new Option(METHOD_PATCH, METHOD_PATCH)
         );
 
+        // Message sub-property shown inside the method dropdown for POST/PUT/PATCH
         Property messageSubProp = new Property.Builder<Void>(null)
                 .metadata()
                     .label("Message")
-                    .description("Request body payload (any HTTP-compatible type).")
+                    .description("Request body payload (for POST, PUT, PATCH)")
                     .stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION)
                     .ballerinaType("http:RequestMessage").selected(true).stepOut()
                 .value("")
                 .editable(true)
-                .optional(true)
                 .build();
 
         Map<String, Map<String, Property>> methodDynamicFields = new LinkedHashMap<>();
@@ -126,7 +125,7 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 .stepOut()
                 .addProperty(PATH_KEY);
 
-        // Hidden top-level message (storage for the dynamic POST/PUT/PATCH field)
+        // Hidden top-level message property — stores saved value; visible sub-field lives in dynamicFormFields
         nodeBuilder.properties().custom()
                 .metadata()
                     .label("Message")

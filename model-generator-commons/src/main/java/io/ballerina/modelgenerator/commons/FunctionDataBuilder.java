@@ -305,7 +305,23 @@ public class FunctionDataBuilder {
         // For external functions: resolve from central repository
         Package resolvedPackage = PackageUtil.resolveModulePackage(
                 moduleInfo.org(), moduleInfo.packageName(), moduleInfo.version()).orElse(null);
-        this.resolvedPackage(resolvedPackage);
+        if (resolvedPackage != null) {
+            this.resolvedPackage = resolvedPackage;
+            if (semanticModel == null) {
+                // Use the module matching moduleInfo.moduleName() rather than always the default module,
+                // so that sub-modules (e.g. soap.soap11 inside the soap package) are resolved correctly.
+                var compilation = PackageUtil.getCompilation(resolvedPackage);
+                for (Module module : resolvedPackage.modules()) {
+                    if (module.moduleName().toString().equals(moduleInfo.moduleName())) {
+                        semanticModel(compilation.getSemanticModel(module.moduleId()));
+                        break;
+                    }
+                }
+                if (semanticModel == null) {
+                    semanticModel(compilation.getSemanticModel(resolvedPackage.getDefaultModule().moduleId()));
+                }
+            }
+        }
     }
 
     private void updateModuleInfo() {
