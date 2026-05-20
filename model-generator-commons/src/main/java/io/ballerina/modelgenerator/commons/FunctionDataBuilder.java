@@ -86,6 +86,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static io.ballerina.modelgenerator.commons.FunctionData.Kind.isAiClassKind;
 import static io.ballerina.modelgenerator.commons.FunctionData.Kind.isConnector;
@@ -314,7 +315,7 @@ public class FunctionDataBuilder {
                 if (compilation == null) {
                     return;
                 }
-                resolvedPackage.modules().stream()
+                StreamSupport.stream(resolvedPackage.modules().spliterator(), false)
                         .filter(module -> module.moduleName().toString().equals(moduleInfo.moduleName()))
                         .findFirst()
                         .ifPresent(module -> semanticModel(compilation.getSemanticModel(module.moduleId())));
