@@ -38,6 +38,9 @@ public record ItemOption(String id, String content, Object value) {
      * @return a list of ItemOption
      */
     public static List<ItemOption> from(List<Option> options) {
+        if (options == null) {
+            return List.of();
+        }
         return options.stream()
                 .map(o -> new ItemOption(o.value(), o.label(), o.value()))
                 .toList();

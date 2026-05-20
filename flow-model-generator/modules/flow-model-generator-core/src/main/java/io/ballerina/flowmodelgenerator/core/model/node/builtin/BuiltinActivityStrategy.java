@@ -162,7 +162,11 @@ public interface BuiltinActivityStrategy {
             // so source always uses "..." rather than string `...`.
             value = normalizeStringLiteral(value);
             if (!isBallerinaStringExpression(value)) {
-                value = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+                value = "\"" + value.replace("\\", "\\\\")
+                        .replace("\"", "\\\"")
+                        .replace("\n", "\\n")
+                        .replace("\r", "\\r")
+                        .replace("\t", "\\t") + "\"";
             }
         }
         args.add(paramName + ": " + value);
@@ -178,7 +182,11 @@ public interface BuiltinActivityStrategy {
         if (value != null && value.startsWith("string `") && value.endsWith("`")
                 && !value.contains("${")) {
             String inner = value.substring("string `".length(), value.length() - 1);
-            return "\"" + inner.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+            return "\"" + inner.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r")
+                    .replace("\t", "\\t") + "\"";
         }
         return value;
     }
