@@ -129,7 +129,7 @@ public class ActivityCallBuilder extends CallBuilder {
                 : null;
 
         if (currentBuiltinStrategy != null) {
-            buildBuiltinTemplate(context, codedata.symbol());
+            buildBuiltinTemplate(context, codedata.symbol(), currentBuiltinStrategy);
         } else {
             super.setConcreteTemplateData(context);
             addAdvancedParameters(context, moduleInfo, this);
@@ -141,9 +141,7 @@ public class ActivityCallBuilder extends CallBuilder {
      * Uses the strategy's setFormProperties instead of reading from the actual function signature,
      * so the form can have rich UX (dropdowns, dual-type fields, dynamic fields).
      */
-    private void buildBuiltinTemplate(TemplateContext context, String symbol) {
-        BuiltinActivityStrategy strategy = currentBuiltinStrategy;
-
+    private void buildBuiltinTemplate(TemplateContext context, String symbol, BuiltinActivityStrategy strategy) {
         metadata().label(strategy.getLabel()).description(strategy.getDescription());
         codedata().node(NodeKind.ACTIVITY_CALL)
                 .org(WORKFLOW_ORG)

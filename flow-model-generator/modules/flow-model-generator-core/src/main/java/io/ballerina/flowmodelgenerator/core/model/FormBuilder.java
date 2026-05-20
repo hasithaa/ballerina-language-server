@@ -488,7 +488,7 @@ public class FormBuilder<T> extends FacetedBuilder<T> {
                     .stepOut()
                 .editable();
         if (connectors != null && !connectors.isEmpty()) {
-            propertyBuilder.metadata().connectors(connectors).stepOut();
+            propertyBuilder.metadata().connectors(connectors);
         }
         if (searchNodesKind != null) {
             propertyBuilder.codedata().searchNodesKind(searchNodesKind).stepOut();
