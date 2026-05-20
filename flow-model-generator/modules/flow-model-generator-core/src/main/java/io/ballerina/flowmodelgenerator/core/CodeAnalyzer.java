@@ -168,7 +168,6 @@ import io.ballerina.flowmodelgenerator.core.model.node.ShortTermMemoryStoreBuild
 import io.ballerina.flowmodelgenerator.core.model.node.StartBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.VariableBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.VectorStoreBuilder;
-import io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.BuiltinActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.EmailActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.RestActivityStrategy;
@@ -2620,6 +2619,11 @@ public class CodeAnalyzer extends NodeVisitor {
             }
         }
 
+        // Capture and reset the flag immediately so it never leaks into subsequent node visits
+        // regardless of which branch below matches first.
+        boolean isBuiltinActivity = this.currentNodeIsBuiltinActivity;
+        this.currentNodeIsBuiltinActivity = false;
+
         // TODO: Find a better way on how we can achieve this
         if (nodeBuilder instanceof DataMapperBuilder) {
             nodeBuilder.properties().data(this.typedBindingPatternNode, new HashSet<>());
@@ -2648,9 +2652,8 @@ public class CodeAnalyzer extends NodeVisitor {
                             Property.VARIABLE_DOC, true, new HashSet<>(), true);
         } else if (nodeBuilder instanceof WaitDataBuilder) {
             // Variable/type info is embedded in the dataWaits property — skip generic handling
-        } else if (currentNodeIsBuiltinActivity) {
+        } else if (isBuiltinActivity) {
             // TYPE_KEY and VARIABLE_KEY already added by populateBuiltinActivityProperties — skip
-            currentNodeIsBuiltinActivity = false;
         } else {
             nodeBuilder.properties().dataVariable(this.typedBindingPatternNode, implicit, new HashSet<>());
         }

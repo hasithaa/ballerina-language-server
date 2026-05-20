@@ -778,7 +778,7 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                     if (defaultValue != null && !defaultValue.isEmpty()) {
                         options = reorderOptionsByDefaultValue(options, defaultValue);
                     }
-                    type().fieldType(ValueType.SINGLE_SELECT).options(options).stepOut();
+                    builder.type().fieldType(ValueType.SINGLE_SELECT).options(options).stepOut();
                 } else {
                     // Handle union of primitive types by defining an input type for each primitive type
                     for (TypeSymbol ts : typeSymbols) {
@@ -1055,6 +1055,7 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
             // Find the matching type symbol that is a subtype of the parameter type.
             // When the inferred type is unavailable or a compilation error, skip the subtype check
             // and use the declared type directly.
+            TypeSymbol resolvedType = typeSymbol;
             if (paramType.isPresent()
                     && paramType.get().typeKind() != TypeDescKind.COMPILATION_ERROR) {
                 TypeSymbol actualParamType = paramType.get();
@@ -1065,11 +1066,12 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                 if (matchingType == null) {
                     return;
                 }
+                resolvedType = matchingType;
             } else if (candidateMapTypes.isEmpty()) {
                 return;
             }
 
-            String ballerinaType = CommonUtils.getTypeSignature(typeSymbol, moduleInfo);
+            String ballerinaType = CommonUtils.getTypeSignature(resolvedType, moduleInfo);
 
             // Find and update the matching property type
             builder.types.stream()
