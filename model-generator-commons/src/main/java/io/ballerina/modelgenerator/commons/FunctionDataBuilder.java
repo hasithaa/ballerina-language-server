@@ -311,14 +311,18 @@ public class FunctionDataBuilder {
                 // Use the module matching moduleInfo.moduleName() rather than always the default module,
                 // so that sub-modules (e.g. soap.soap11 inside the soap package) are resolved correctly.
                 var compilation = PackageUtil.getCompilation(resolvedPackage);
-                for (Module module : resolvedPackage.modules()) {
-                    if (module.moduleName().toString().equals(moduleInfo.moduleName())) {
-                        semanticModel(compilation.getSemanticModel(module.moduleId()));
-                        break;
-                    }
+                if (compilation == null) {
+                    return;
                 }
+                resolvedPackage.modules().stream()
+                        .filter(module -> module.moduleName().toString().equals(moduleInfo.moduleName()))
+                        .findFirst()
+                        .ifPresent(module -> semanticModel(compilation.getSemanticModel(module.moduleId())));
                 if (semanticModel == null) {
-                    semanticModel(compilation.getSemanticModel(resolvedPackage.getDefaultModule().moduleId()));
+                    Module defaultModule = resolvedPackage.getDefaultModule();
+                    if (defaultModule != null) {
+                        semanticModel(compilation.getSemanticModel(defaultModule.moduleId()));
+                    }
                 }
             }
         }
