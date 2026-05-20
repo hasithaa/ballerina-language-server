@@ -416,7 +416,12 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
         public static Builder<Object> copyFrom(Property original) {
             Builder<Object> builder = new Builder<>(null);
             if (original.types() != null) {
-                builder.types.addAll(original.types());
+                // Deep-copy each PropertyType so that mutating `selected` on the copy
+                // does not alias back to the original's type entries.
+                for (PropertyType t : original.types()) {
+                    builder.types.add(new PropertyType(t.fieldType(), t.ballerinaType(), t.scope(),
+                            t.options(), t.template(), t.typeMembers(), t.recordSelectorType(), t.selected()));
+                }
             }
             builder.value = original.value();
             builder.oldValue = original.oldValue();
@@ -427,11 +432,13 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
             builder.hidden = original.hidden();
             builder.modified = original.modified();
             builder.advancedValue = original.advancedValue();
-            builder.imports = original.imports();
+            builder.imports = original.imports() != null ? new HashMap<>(original.imports()) : null;
             builder.defaultValue = original.defaultValue();
             builder.commentProperty = original.comment();
-            builder.dynamicFormFields = original.dynamicFormFields();
-            builder.itemOptions = original.itemOptions();
+            builder.dynamicFormFields = original.dynamicFormFields() != null
+                    ? new LinkedHashMap<>(original.dynamicFormFields()) : null;
+            builder.itemOptions = original.itemOptions() != null
+                    ? new ArrayList<>(original.itemOptions()) : null;
             if (original.metadata() != null) {
                 builder.metadataBuilder = new Metadata.Builder<>(builder);
                 builder.metadataBuilder.label(original.metadata().label())

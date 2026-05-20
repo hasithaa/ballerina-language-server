@@ -852,8 +852,9 @@ public class CodeAnalyzer extends NodeVisitor {
         if (module.isEmpty()) {
             return null;
         }
+        String orgName = module.get().id().orgName();
         String moduleName = module.get().id().moduleName();
-        if (!ACTIVITY_MODULE.equals(moduleName)) {
+        if (!BALLERINA_ORG_NAME.equals(orgName) || !ACTIVITY_MODULE.equals(moduleName)) {
             return null;
         }
         if (BUILTIN_REST_FUNCTION.equals(functionName)) {
@@ -1003,6 +1004,10 @@ public class CodeAnalyzer extends NodeVisitor {
      * </ol>
      */
     private void populateBuiltinActivityProperties(RemoteMethodCallActionNode callNode, String builtinSymbol) {
+        // Preserve the checkError state set by setFunctionProperties/handleCheckFlag before clearing.
+        // Without this, a builtin called inside a do-clause without `check` (checkError=false) would
+        // incorrectly regenerate with `check` because the absent property defaults to true.
+        Property savedCheckError = nodeBuilder.properties().build().get(Property.CHECK_ERROR_KEY);
         nodeBuilder.properties().build().clear();
 
         SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
@@ -1110,7 +1115,13 @@ public class CodeAnalyzer extends NodeVisitor {
                         .addProperty(Property.VARIABLE_KEY);
             }
         }
-        // checkError defaults to true; ActivityCallBuilder.toSourceBuiltin() uses that default.
+        // Restore checkError only when it was explicitly set (e.g. false inside a do-clause).
+        // When absent, toSourceBuiltin() defaults to true (the normal `check` case).
+        if (savedCheckError != null) {
+            boolean checkError = savedCheckError.value() != null
+                    && Boolean.parseBoolean(savedCheckError.value().toString());
+            nodeBuilder.properties().checkError(checkError);
+        }
     }
 
     /** Rebuilds REST-specific form properties from source values, preserving template shapes. */
