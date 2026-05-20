@@ -274,7 +274,6 @@ public class CodeAnalyzer extends NodeVisitor {
     private final List<FlowNode> flowNodeList;
     private final Stack<NodeBuilder> flowNodeBuilderStack;
     private TypedBindingPatternNode typedBindingPatternNode;
-    private boolean currentNodeIsBuiltinActivity = false;
     private static final String AI_AGENT = "ai";
     public static final String ICON_PATH = CommonUtils.generateIcon(BALLERINA_ORG_NAME, "mcp", "0.4.2");
     public static final String MCP_TOOL_KIT = "McpToolKit";
@@ -491,10 +490,8 @@ public class CodeAnalyzer extends NodeVisitor {
                 // Builtin: symbol is the actual function name (callRestAPI/callSoapAPI/sendEmail).
                 nodeBuilder.codedata().symbol(builtinSymbol);
                 nodeBuilder.codedata().module(ACTIVITY_MODULE);
-                currentNodeIsBuiltinActivity = true;
                 populateBuiltinActivityProperties(remoteMethodCallActionNode, builtinSymbol);
             } else {
-                currentNodeIsBuiltinActivity = false;
                 overrideSymbolFromFirstArg(remoteMethodCallActionNode.arguments());
                 populateActivityCallProperties(remoteMethodCallActionNode);
             }
@@ -1004,12 +1001,8 @@ public class CodeAnalyzer extends NodeVisitor {
      * </ol>
      */
     private void populateBuiltinActivityProperties(RemoteMethodCallActionNode callNode, String builtinSymbol) {
-        // Preserve the checkError state set by setFunctionProperties/handleCheckFlag before clearing.
-        // Without this, a builtin called inside a do-clause without `check` (checkError=false) would
-        // incorrectly regenerate with `check` because the absent property defaults to true.
-        Property savedCheckError = nodeBuilder.properties().build().get(Property.CHECK_ERROR_KEY);
-        nodeBuilder.properties().build().clear();
-
+        // Validate the second argument is a mapping constructor BEFORE clearing properties.
+        // Clearing first would discard connection/result/checkError state on every early return.
         SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
         if (args.size() <= 1) {
             return;
@@ -1022,6 +1015,12 @@ public class CodeAnalyzer extends NodeVisitor {
         if (secondExpr.kind() != SyntaxKind.MAPPING_CONSTRUCTOR) {
             return;
         }
+
+        // Preserve the checkError state set by setFunctionProperties/handleCheckFlag before clearing.
+        // Without this, a builtin called inside a do-clause without `check` (checkError=false) would
+        // incorrectly regenerate with `check` because the absent property defaults to true.
+        Property savedCheckError = nodeBuilder.properties().build().get(Property.CHECK_ERROR_KEY);
+        nodeBuilder.properties().build().clear();
 
         BuiltinActivityStrategy strategy = ActivityCallBuilder.getBuiltinStrategy(builtinSymbol);
 
@@ -2599,11 +2598,6 @@ public class CodeAnalyzer extends NodeVisitor {
             }
         }
 
-        // Capture and reset the flag immediately so it never leaks into subsequent node visits
-        // regardless of which branch below matches first.
-        boolean isBuiltinActivity = this.currentNodeIsBuiltinActivity;
-        this.currentNodeIsBuiltinActivity = false;
-
         // TODO: Find a better way on how we can achieve this
         if (nodeBuilder instanceof DataMapperBuilder) {
             nodeBuilder.properties().data(this.typedBindingPatternNode, new HashSet<>());
@@ -2632,8 +2626,8 @@ public class CodeAnalyzer extends NodeVisitor {
                             Property.VARIABLE_DOC, true, new HashSet<>(), true);
         } else if (nodeBuilder instanceof WaitDataBuilder) {
             // Variable/type info is embedded in the dataWaits property — skip generic handling
-        } else if (isBuiltinActivity) {
-            // TYPE_KEY and VARIABLE_KEY already added by populateBuiltinActivityProperties — skip
+        } else if (nodeBuilder.properties().build().containsKey(Property.VARIABLE_KEY)) {
+            // VARIABLE_KEY already set (e.g. by populateBuiltinActivityProperties) — skip
         } else {
             nodeBuilder.properties().dataVariable(this.typedBindingPatternNode, implicit, new HashSet<>());
         }

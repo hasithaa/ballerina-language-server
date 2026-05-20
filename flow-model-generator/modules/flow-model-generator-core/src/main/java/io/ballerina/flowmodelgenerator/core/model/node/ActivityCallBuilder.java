@@ -29,8 +29,6 @@ import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.flowmodelgenerator.core.model.Codedata;
 import io.ballerina.flowmodelgenerator.core.model.FlowNode;
-import io.ballerina.flowmodelgenerator.core.model.Metadata;
-import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
@@ -39,6 +37,7 @@ import io.ballerina.flowmodelgenerator.core.model.node.builtin.EmailActivityStra
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.RestActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.SoapActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.utils.FileSystemUtils;
+import io.ballerina.flowmodelgenerator.core.utils.ParamUtils;
 import io.ballerina.flowmodelgenerator.core.utils.WorkflowUtil;
 import io.ballerina.modelgenerator.commons.CommonUtils;
 import io.ballerina.modelgenerator.commons.FunctionData;
@@ -46,7 +45,6 @@ import io.ballerina.modelgenerator.commons.FunctionDataBuilder;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.ParameterData;
-import io.ballerina.flowmodelgenerator.core.utils.ParamUtils;
 import io.ballerina.projects.Module;
 import io.ballerina.tools.text.LineRange;
 import org.eclipse.lsp4j.Range;
@@ -80,7 +78,7 @@ import static io.ballerina.flowmodelgenerator.core.utils.WorkflowUtil.isWorkflow
  * {@code int result = check ctx->callActivity(myActivity, {input});}
  *
  * <p>For builtin activities, generates:
- * {@code <T> <var> = check ctx->callActivity(activity:<fn>, {connection: <c>, ...});}
+ * {@code <T> varName = check ctx->callActivity(activity:<fn>, {connection: <c>, ...});}
  *
  * @since 1.8.0
  */
