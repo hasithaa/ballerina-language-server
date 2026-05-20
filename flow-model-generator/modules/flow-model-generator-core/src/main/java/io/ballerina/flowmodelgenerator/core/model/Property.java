@@ -435,8 +435,14 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
             builder.imports = original.imports() != null ? new HashMap<>(original.imports()) : null;
             builder.defaultValue = original.defaultValue();
             builder.commentProperty = original.comment();
-            builder.dynamicFormFields = original.dynamicFormFields() != null
-                    ? new LinkedHashMap<>(original.dynamicFormFields()) : null;
+            if (original.dynamicFormFields() != null) {
+                builder.dynamicFormFields = new LinkedHashMap<>();
+                for (Map.Entry<String, Map<String, Property>> e : original.dynamicFormFields().entrySet()) {
+                    builder.dynamicFormFields.put(e.getKey(), new LinkedHashMap<>(e.getValue()));
+                }
+            } else {
+                builder.dynamicFormFields = null;
+            }
             builder.itemOptions = original.itemOptions() != null
                     ? new ArrayList<>(original.itemOptions()) : null;
             if (original.metadata() != null) {

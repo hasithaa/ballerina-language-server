@@ -491,7 +491,7 @@ public class FormBuilder<T> extends FacetedBuilder<T> {
             propertyBuilder.metadata().connectors(connectors);
         }
         if (searchNodesKind != null) {
-            propertyBuilder.codedata().searchNodesKind(searchNodesKind).stepOut();
+            propertyBuilder.codedata().searchNodesKind(searchNodesKind);
         }
         addProperty(key);
         return this;
