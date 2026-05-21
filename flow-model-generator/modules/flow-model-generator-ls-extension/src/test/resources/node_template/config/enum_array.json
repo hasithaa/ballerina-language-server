@@ -37,44 +37,44 @@
         },
         "types": [
           {
-            "fieldType": "SINGLE_SELECT",
-            "options": [
-              {
-                "label": "Sunday",
-                "value": "\"Sunday\""
-              },
-              {
-                "label": "Saturday",
-                "value": "\"Saturday\""
-              },
-              {
-                "label": "Friday",
-                "value": "\"Friday\""
-              },
-              {
-                "label": "Thursday",
-                "value": "\"Thursday\""
-              },
-              {
-                "label": "Wednesday",
-                "value": "\"Wednesday\""
-              },
-              {
-                "label": "Tuesday",
-                "value": "\"Tuesday\""
-              },
-              {
-                "label": "Monday",
-                "value": "\"Monday\""
-              }
-            ],
-            "selected": false
-          },
-          {
             "fieldType": "REPEATABLE_LIST",
             "ballerinaType": "Day[]",
             "template": {
               "types": [
+                {
+                  "fieldType": "SINGLE_SELECT",
+                  "options": [
+                    {
+                      "label": "Sunday",
+                      "value": "\"Sunday\""
+                    },
+                    {
+                      "label": "Saturday",
+                      "value": "\"Saturday\""
+                    },
+                    {
+                      "label": "Friday",
+                      "value": "\"Friday\""
+                    },
+                    {
+                      "label": "Thursday",
+                      "value": "\"Thursday\""
+                    },
+                    {
+                      "label": "Wednesday",
+                      "value": "\"Wednesday\""
+                    },
+                    {
+                      "label": "Tuesday",
+                      "value": "\"Tuesday\""
+                    },
+                    {
+                      "label": "Monday",
+                      "value": "\"Monday\""
+                    }
+                  ],
+                  "selected": false
+                },
                 {
                   "fieldType": "EXPRESSION",
                   "ballerinaType": "Day",

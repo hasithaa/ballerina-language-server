@@ -358,7 +358,7 @@
           },
           "type": {
             "metadata": {
-              "label": "Variable Type",
+              "label": "Result Type",
               "description": "Type of the variable"
             },
             "types": [
@@ -367,18 +367,21 @@
                 "selected": true
               }
             ],
-            "value": "string",
+            "value": "ai:Agent",
             "placeholder": "var",
             "optional": false,
-            "editable": true,
+            "editable": false,
             "advanced": false,
-            "hidden": false,
-            "codedata": {}
+            "hidden": true,
+            "codedata": {},
+            "imports": {
+              "ai": "ballerinax/ai"
+            }
           },
           "variable": {
             "metadata": {
-              "label": "Variable Name",
-              "description": "Name of the variable"
+              "label": "Result",
+              "description": "Name of the result variable"
             },
             "types": [
               {
@@ -386,24 +389,11 @@
                 "selected": true
               }
             ],
-            "value": "stringResult",
+            "value": "aiAgent",
             "optional": false,
-            "editable": false,
+            "editable": true,
             "advanced": false,
-            "hidden": false,
-            "codedata": {
-              "lineRange": {
-                "fileName": "chat_agent.bal",
-                "startLine": {
-                  "line": 14,
-                  "offset": 15
-                },
-                "endLine": {
-                  "line": 14,
-                  "offset": 27
-                }
-              }
-            }
+            "hidden": true
           },
           "checkError": {
             "metadata": {

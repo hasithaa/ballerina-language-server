@@ -1016,11 +1016,19 @@ public class CodeAnalyzer extends NodeVisitor {
             return;
         }
 
-        // Preserve the checkError state set by setFunctionProperties/handleCheckFlag before clearing.
-        // Without this, a builtin called inside a do-clause without `check` (checkError=false) would
-        // incorrectly regenerate with `check` because the absent property defaults to true.
-        Property savedCheckError = nodeBuilder.properties().build().get(Property.CHECK_ERROR_KEY);
-        nodeBuilder.properties().build().clear();
+        // Preserve checkError and the advanced callActivity params (retryOnError, maxRetries, etc.)
+        // populated by setFunctionProperties/processFunctionSymbol from named args in source, before
+        // the clear below discards them.  Without this, builtin activities lose their advanced options
+        // on every reload/regeneration, causing toSourceBuiltin() to omit them.
+        Map<String, Property> currentProps = nodeBuilder.properties().build();
+        Property savedCheckError = currentProps.get(Property.CHECK_ERROR_KEY);
+        Map<String, Property> savedAdvancedProps = new LinkedHashMap<>();
+        for (Map.Entry<String, Property> entry : currentProps.entrySet()) {
+            if (!EXCLUDED_CALL_ACTIVITY_PARAMS.contains(entry.getKey())) {
+                savedAdvancedProps.put(entry.getKey(), entry.getValue());
+            }
+        }
+        currentProps.clear();
 
         BuiltinActivityStrategy strategy = ActivityCallBuilder.getBuiltinStrategy(builtinSymbol);
 
@@ -1120,6 +1128,18 @@ public class CodeAnalyzer extends NodeVisitor {
             boolean checkError = savedCheckError.value() != null
                     && Boolean.parseBoolean(savedCheckError.value().toString());
             nodeBuilder.properties().checkError(checkError);
+        }
+
+        // Restore advanced callActivity params (retryOnError, maxRetries, etc.) as ADVANCED_PARAM_KEY
+        // so toSourceBuiltin() / populateAdvancedArgs() can emit them as named arguments.
+        if (!savedAdvancedProps.isEmpty()) {
+            nodeBuilder.properties().nestedProperty();
+            nodeBuilder.properties().build().putAll(savedAdvancedProps);
+            nodeBuilder.properties().endNestedProperty(
+                    Property.ValueType.ADVANCE_PARAM_LIST,
+                    Property.ADVANCED_PARAM_KEY,
+                    ActivityCallBuilder.ADVANCE_CONFIGURATIONS,
+                    ActivityCallBuilder.ADVANCE_CONFIGURATIONS);
         }
     }
 

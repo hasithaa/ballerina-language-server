@@ -44,14 +44,14 @@
       {
         "id": "34931",
         "metadata": {
-          "label": "New_connection1",
+          "label": "Db",
           "description": "Database persist client.",
           "icon": "https://bcentral-packageicons.azureedge.net/images/nipunaf_new_connection1_0.1.0.png"
         },
         "codedata": {
           "node": "NEW_CONNECTION",
           "org": "nipunaf",
-          "module": "new_connection1",
+          "module": "new_connection1.db",
           "object": "Client",
           "symbol": "init",
           "lineRange": {
@@ -390,135 +390,6 @@
                 }
               }
             }
-          },
-          "genre": {
-            "metadata": {
-              "label": "Genre",
-              "description": "Genre filter (required)"
-            },
-            "types": [
-              {
-                "fieldType": "TEXT",
-                "ballerinaType": "string",
-                "selected": true
-              },
-              {
-                "fieldType": "EXPRESSION",
-                "ballerinaType": "string",
-                "selected": false
-              }
-            ],
-            "value": "\"Rock\"",
-            "placeholder": "\"\"",
-            "optional": false,
-            "editable": true,
-            "advanced": false,
-            "hidden": false,
-            "codedata": {
-              "kind": "REQUIRED",
-              "originalName": "genre"
-            }
-          },
-          "maxPrice": {
-            "metadata": {
-              "label": "Max Price",
-              "description": "Maximum price filter (required)"
-            },
-            "types": [
-              {
-                "fieldType": "NUMBER",
-                "ballerinaType": "decimal",
-                "selected": true
-              },
-              {
-                "fieldType": "EXPRESSION",
-                "ballerinaType": "decimal",
-                "selected": false
-              }
-            ],
-            "value": "50.0d",
-            "placeholder": "0.0d",
-            "optional": false,
-            "editable": true,
-            "advanced": false,
-            "hidden": false,
-            "codedata": {
-              "kind": "REQUIRED",
-              "originalName": "maxPrice"
-            }
-          },
-          "minStock": {
-            "metadata": {
-              "label": "Min Stock",
-              "description": "Minimum stock filter (defaultable)"
-            },
-            "types": [
-              {
-                "fieldType": "NUMBER",
-                "ballerinaType": "int",
-                "selected": false
-              },
-              {
-                "fieldType": "EXPRESSION",
-                "ballerinaType": "int",
-                "selected": false
-              }
-            ],
-            "placeholder": "0",
-            "optional": true,
-            "editable": true,
-            "advanced": true,
-            "hidden": false,
-            "codedata": {
-              "kind": "DEFAULTABLE",
-              "originalName": "minStock"
-            },
-            "defaultValue": "0"
-          },
-          "sortBy": {
-            "metadata": {
-              "label": "Sort By",
-              "description": "Sort field (defaultable)"
-            },
-            "types": [
-              {
-                "fieldType": "TEXT",
-                "ballerinaType": "string",
-                "selected": false
-              },
-              {
-                "fieldType": "EXPRESSION",
-                "ballerinaType": "string",
-                "selected": false
-              }
-            ],
-            "placeholder": "\"\"",
-            "optional": true,
-            "editable": true,
-            "advanced": true,
-            "hidden": false,
-            "codedata": {
-              "kind": "DEFAULTABLE",
-              "originalName": "sortBy"
-            },
-            "defaultValue": "\"\""
-          },
-          "checkError": {
-            "metadata": {
-              "label": "Check Error",
-              "description": "Trigger error flow"
-            },
-            "types": [
-              {
-                "fieldType": "FLAG",
-                "selected": true
-              }
-            ],
-            "value": true,
-            "optional": false,
-            "editable": true,
-            "advanced": true,
-            "hidden": true
           },
           "targetType": {
             "metadata": {
@@ -1515,129 +1386,6 @@
             },
             "defaultValue": "db:AlbumWithRelations"
           },
-          "type": {
-            "metadata": {
-              "label": "Result Type",
-              "description": "Type of the variable"
-            },
-            "types": [
-              {
-                "fieldType": "TYPE",
-                "selected": true
-              }
-            ],
-            "value": "db:Album[]",
-            "placeholder": "var",
-            "optional": false,
-            "editable": false,
-            "advanced": false,
-            "hidden": true,
-            "codedata": {}
-          }
-        },
-        "flags": 1
-      },
-      {
-        "id": "36917",
-        "metadata": {
-          "label": "get",
-          "description": "Get rows from albums table.\n"
-        },
-        "codedata": {
-          "node": "RESOURCE_ACTION_CALL",
-          "org": "nipunaf",
-          "module": "new_connection1.db",
-          "packageName": "new_connection1",
-          "object": "Client",
-          "symbol": "get",
-          "version": "0.1.0",
-          "lineRange": {
-            "fileName": "main.bal",
-            "startLine": {
-              "line": 5,
-              "offset": 4
-            },
-            "endLine": {
-              "line": 5,
-              "offset": 89
-            }
-          },
-          "sourceCode": "db:AlbumWithRelations[] albumsWithRelations = check dbClient->/albums(\"Rock\", 50.0d);",
-          "resourcePath": "/albums",
-          "inferredReturnType": "targetType[]"
-        },
-        "returning": false,
-        "properties": {
-          "resourcePath": {
-            "metadata": {
-              "label": "Resource Path",
-              "description": "Resource Path"
-            },
-            "types": [
-              {
-                "fieldType": "ACTION_PATH",
-                "selected": false
-              }
-            ],
-            "value": "/albums",
-            "optional": false,
-            "editable": false,
-            "advanced": false,
-            "hidden": true,
-            "codedata": {
-              "originalName": "/albums"
-            }
-          },
-          "connection": {
-            "metadata": {
-              "label": "Connection",
-              "description": "Connection to use",
-              "data": {
-                "connectorType": "Default"
-              }
-            },
-            "types": [
-              {
-                "fieldType": "EXPRESSION",
-                "selected": true
-              }
-            ],
-            "value": "dbClient",
-            "optional": false,
-            "editable": false,
-            "advanced": false,
-            "hidden": true
-          },
-          "variable": {
-            "metadata": {
-              "label": "Result",
-              "description": "Name of the result variable"
-            },
-            "types": [
-              {
-                "fieldType": "IDENTIFIER",
-                "selected": true
-              }
-            ],
-            "value": "albumsWithRelations",
-            "optional": false,
-            "editable": false,
-            "advanced": false,
-            "hidden": false,
-            "codedata": {
-              "lineRange": {
-                "fileName": "main.bal",
-                "startLine": {
-                  "line": 5,
-                  "offset": 28
-                },
-                "endLine": {
-                  "line": 5,
-                  "offset": 47
-                }
-              }
-            }
-          },
           "genre": {
             "metadata": {
               "label": "Genre",
@@ -1766,6 +1514,129 @@
             "editable": true,
             "advanced": true,
             "hidden": true
+          },
+          "type": {
+            "metadata": {
+              "label": "Result Type",
+              "description": "Type of the variable"
+            },
+            "types": [
+              {
+                "fieldType": "TYPE",
+                "selected": true
+              }
+            ],
+            "value": "db:Album[]",
+            "placeholder": "var",
+            "optional": false,
+            "editable": false,
+            "advanced": false,
+            "hidden": true,
+            "codedata": {}
+          }
+        },
+        "flags": 1
+      },
+      {
+        "id": "36917",
+        "metadata": {
+          "label": "get",
+          "description": "Get rows from albums table.\n"
+        },
+        "codedata": {
+          "node": "RESOURCE_ACTION_CALL",
+          "org": "nipunaf",
+          "module": "new_connection1.db",
+          "packageName": "new_connection1",
+          "object": "Client",
+          "symbol": "get",
+          "version": "0.1.0",
+          "lineRange": {
+            "fileName": "main.bal",
+            "startLine": {
+              "line": 5,
+              "offset": 4
+            },
+            "endLine": {
+              "line": 5,
+              "offset": 89
+            }
+          },
+          "sourceCode": "db:AlbumWithRelations[] albumsWithRelations = check dbClient->/albums(\"Rock\", 50.0d);",
+          "resourcePath": "/albums",
+          "inferredReturnType": "targetType[]"
+        },
+        "returning": false,
+        "properties": {
+          "resourcePath": {
+            "metadata": {
+              "label": "Resource Path",
+              "description": "Resource Path"
+            },
+            "types": [
+              {
+                "fieldType": "ACTION_PATH",
+                "selected": false
+              }
+            ],
+            "value": "/albums",
+            "optional": false,
+            "editable": false,
+            "advanced": false,
+            "hidden": true,
+            "codedata": {
+              "originalName": "/albums"
+            }
+          },
+          "connection": {
+            "metadata": {
+              "label": "Connection",
+              "description": "Connection to use",
+              "data": {
+                "connectorType": "Default"
+              }
+            },
+            "types": [
+              {
+                "fieldType": "EXPRESSION",
+                "selected": true
+              }
+            ],
+            "value": "dbClient",
+            "optional": false,
+            "editable": false,
+            "advanced": false,
+            "hidden": true
+          },
+          "variable": {
+            "metadata": {
+              "label": "Result",
+              "description": "Name of the result variable"
+            },
+            "types": [
+              {
+                "fieldType": "IDENTIFIER",
+                "selected": true
+              }
+            ],
+            "value": "albumsWithRelations",
+            "optional": false,
+            "editable": false,
+            "advanced": false,
+            "hidden": false,
+            "codedata": {
+              "lineRange": {
+                "fileName": "main.bal",
+                "startLine": {
+                  "line": 5,
+                  "offset": 28
+                },
+                "endLine": {
+                  "line": 5,
+                  "offset": 47
+                }
+              }
+            }
           },
           "targetType": {
             "metadata": {
@@ -2761,6 +2632,135 @@
               "originalName": "targetType"
             },
             "defaultValue": "db:AlbumWithRelations"
+          },
+          "genre": {
+            "metadata": {
+              "label": "Genre",
+              "description": "Genre filter (required)"
+            },
+            "types": [
+              {
+                "fieldType": "TEXT",
+                "ballerinaType": "string",
+                "selected": true
+              },
+              {
+                "fieldType": "EXPRESSION",
+                "ballerinaType": "string",
+                "selected": false
+              }
+            ],
+            "value": "\"Rock\"",
+            "placeholder": "\"\"",
+            "optional": false,
+            "editable": true,
+            "advanced": false,
+            "hidden": false,
+            "codedata": {
+              "kind": "REQUIRED",
+              "originalName": "genre"
+            }
+          },
+          "maxPrice": {
+            "metadata": {
+              "label": "Max Price",
+              "description": "Maximum price filter (required)"
+            },
+            "types": [
+              {
+                "fieldType": "NUMBER",
+                "ballerinaType": "decimal",
+                "selected": true
+              },
+              {
+                "fieldType": "EXPRESSION",
+                "ballerinaType": "decimal",
+                "selected": false
+              }
+            ],
+            "value": "50.0d",
+            "placeholder": "0.0d",
+            "optional": false,
+            "editable": true,
+            "advanced": false,
+            "hidden": false,
+            "codedata": {
+              "kind": "REQUIRED",
+              "originalName": "maxPrice"
+            }
+          },
+          "minStock": {
+            "metadata": {
+              "label": "Min Stock",
+              "description": "Minimum stock filter (defaultable)"
+            },
+            "types": [
+              {
+                "fieldType": "NUMBER",
+                "ballerinaType": "int",
+                "selected": false
+              },
+              {
+                "fieldType": "EXPRESSION",
+                "ballerinaType": "int",
+                "selected": false
+              }
+            ],
+            "placeholder": "0",
+            "optional": true,
+            "editable": true,
+            "advanced": true,
+            "hidden": false,
+            "codedata": {
+              "kind": "DEFAULTABLE",
+              "originalName": "minStock"
+            },
+            "defaultValue": "0"
+          },
+          "sortBy": {
+            "metadata": {
+              "label": "Sort By",
+              "description": "Sort field (defaultable)"
+            },
+            "types": [
+              {
+                "fieldType": "TEXT",
+                "ballerinaType": "string",
+                "selected": false
+              },
+              {
+                "fieldType": "EXPRESSION",
+                "ballerinaType": "string",
+                "selected": false
+              }
+            ],
+            "placeholder": "\"\"",
+            "optional": true,
+            "editable": true,
+            "advanced": true,
+            "hidden": false,
+            "codedata": {
+              "kind": "DEFAULTABLE",
+              "originalName": "sortBy"
+            },
+            "defaultValue": "\"\""
+          },
+          "checkError": {
+            "metadata": {
+              "label": "Check Error",
+              "description": "Trigger error flow"
+            },
+            "types": [
+              {
+                "fieldType": "FLAG",
+                "selected": true
+              }
+            ],
+            "value": true,
+            "optional": false,
+            "editable": true,
+            "advanced": true,
+            "hidden": true
           },
           "type": {
             "metadata": {
