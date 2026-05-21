@@ -248,13 +248,6 @@ public class ActivityCallBuilder extends CallBuilder {
         return functionSymbol != null ? BUILTIN_STRATEGY_MAP.get(functionSymbol) : null;
     }
 
-    /**
-     * Returns {@code true} when the given module + symbol identify a builtin activity function.
-     */
-    public static boolean isBuiltinActivity(String module, String symbol) {
-        return ACTIVITY_MODULE.equals(module) && BUILTIN_STRATEGY_MAP.containsKey(symbol);
-    }
-
     @Override
     public Map<Path, List<TextEdit>> toSource(SourceBuilder sourceBuilder) {
         BuiltinActivityStrategy strategy = resolveBuiltinStrategy(sourceBuilder.flowNode.codedata());
@@ -395,7 +388,9 @@ public class ActivityCallBuilder extends CallBuilder {
         sourceBuilder.token()
                 .keyword(SyntaxKind.OPEN_BRACE_TOKEN)
                 .name(String.join(", ", argEntries))
-                .keyword(SyntaxKind.CLOSE_BRACE_TOKEN)
+                .keyword(SyntaxKind.CLOSE_BRACE_TOKEN);
+        populateAdvancedArgs(sourceBuilder, sourceBuilder.flowNode.properties());
+        sourceBuilder.token()
                 .keyword(SyntaxKind.CLOSE_PAREN_TOKEN)
                 .endOfStatement();
 
