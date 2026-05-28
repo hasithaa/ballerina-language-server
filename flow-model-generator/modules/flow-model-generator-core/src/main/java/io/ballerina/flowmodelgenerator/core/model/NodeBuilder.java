@@ -83,6 +83,8 @@ import io.ballerina.flowmodelgenerator.core.model.node.TransactionBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.VariableBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.VectorStoreBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.WaitBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.HumanTaskBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.HumanTaskBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.WaitDataBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.WhileBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.WorkflowBuilder;
@@ -192,6 +194,7 @@ public abstract class NodeBuilder implements DiagnosticHandler.DiagnosticCapable
         put(NodeKind.WAIT_DATA, WaitDataBuilder::new);
         put(NodeKind.SEND_DATA, SendDataBuilder::new);
         put(NodeKind.WORKFLOW_RUN, WorkflowRunBuilder::new);
+        put(NodeKind.HUMAN_TASK, HumanTaskBuilder::new);
     }};
 
     public static NodeBuilder getNodeFromKind(NodeKind kind) {

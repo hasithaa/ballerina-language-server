@@ -435,7 +435,7 @@ public class AvailableNodesGenerator {
         List<Item> workflowNodes = new ArrayList<>();
 
         if (isInWorkflowFunction) {
-            // Inside a workflow function: only Call Activity and Wait for Data
+            // Inside a workflow function: only Call Activity, Human Task, and Wait for Data
             AvailableNode callActivity = new AvailableNode(
                     new Metadata.Builder<>(null)
                             .label(Workflow.CALL_ACTIVITY_LABEL)
@@ -443,6 +443,17 @@ public class AvailableNodesGenerator {
                             .build(),
                     new Codedata.Builder<>(null)
                             .node(NodeKind.ACTIVITY_CALL)
+                            .build(),
+                    true
+            );
+
+            AvailableNode humanTask = new AvailableNode(
+                    new Metadata.Builder<>(null)
+                            .label(Workflow.HUMAN_TASK_LABEL)
+                            .description(Workflow.HUMAN_TASK_DESCRIPTION)
+                            .build(),
+                    new Codedata.Builder<>(null)
+                            .node(NodeKind.HUMAN_TASK)
                             .build(),
                     true
             );
@@ -459,6 +470,7 @@ public class AvailableNodesGenerator {
             );
 
             workflowNodes.add(callActivity);
+            workflowNodes.add(humanTask);
             workflowNodes.add(waitData);
         } else {
             // Outside workflow function: Run Workflow and Send Data

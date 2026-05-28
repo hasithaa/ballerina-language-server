@@ -111,5 +111,6 @@ public enum NodeKind {
     ACTIVITY_CREATION,
     BUILTIN_ACTIVITY,
     SEND_DATA,
-    WAIT_DATA
+    WAIT_DATA,
+    HUMAN_TASK
 }
