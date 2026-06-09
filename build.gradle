@@ -350,6 +350,7 @@ task pullBallerinaModules {
     dependsOn pullBallerinaModule('trigger.github', ballerinaxGithubTriggerVersion)
     dependsOn pullBallerinaModule('trigger.shopify', ballerinaxShopifyTriggerVersion)
     dependsOn pullBallerinaModule('np', ballerinaxNp)
+    dependsOn pullBallerinaModule('workflow', ballerinaWorkflowVersion, "ballerina")
 }
 
 test {
