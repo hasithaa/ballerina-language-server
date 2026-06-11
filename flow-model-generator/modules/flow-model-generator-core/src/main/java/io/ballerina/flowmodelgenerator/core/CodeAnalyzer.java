@@ -139,7 +139,6 @@ import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Option;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder;
-import io.ballerina.flowmodelgenerator.core.model.node.HumanTaskBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.AgentBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.AgentCallBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.AssignBuilder;
@@ -153,6 +152,7 @@ import io.ballerina.flowmodelgenerator.core.model.node.EmbeddingProviderBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.FailBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.FunctionCall;
 import io.ballerina.flowmodelgenerator.core.model.node.FunctionDefinitionBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.HumanTaskBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.IfBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.JsonPayloadBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.KnowledgeBaseBuilder;
@@ -224,6 +224,10 @@ import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.BUILTIN_SO
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.CALL_ACTIVITY_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.CALL_HUMAN_TASK_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.CONTEXT_CLASS_NAME;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.HUMAN_TASK_DESCRIPTION;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.HUMAN_TASK_LABEL;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.WORKFLOW_MODULE;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.WORKFLOW_ORG;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.RUN_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.SEND_DATA_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.model.node.ActivityCallBuilder.EXCLUDED_CALL_ACTIVITY_PARAMS;
@@ -458,6 +462,11 @@ public class CodeAnalyzer extends NodeVisitor {
         }
         Optional<Symbol> symbol = semanticModel.symbol(remoteMethodCallActionNode);
         if (symbol.isEmpty() || (symbol.get().kind() != SymbolKind.METHOD)) {
+            // Fallback: recognize callHumanTask by method name even when semantic model cannot resolve
+            // the symbol (e.g., the installed workflow library version predates callHumanTask).
+            if (tryHandleUnresolvedCallHumanTask(remoteMethodCallActionNode)) {
+                return;
+            }
             handleExpressionNode(remoteMethodCallActionNode);
             return;
         }
@@ -836,6 +845,46 @@ public class CodeAnalyzer extends NodeVisitor {
         String className = classSymbol.getName().orElse("");
         return methodName.equals(operationName) &&
                 className.equals(CONTEXT_CLASS_NAME) && isWorkflowModule(classSymbol.getModule());
+    }
+
+    /**
+     * Handles a {@code ctx->callHumanTask(...)} call when the semantic model cannot resolve the method
+     * symbol (e.g., when the installed workflow library version predates {@code callHumanTask}).
+     * Falls back to method-name + class-symbol detection so the node is still classified as HUMAN_TASK.
+     *
+     * @return {@code true} if the node was handled as HUMAN_TASK, {@code false} otherwise
+     */
+    private boolean tryHandleUnresolvedCallHumanTask(RemoteMethodCallActionNode callNode) {
+        if (!CALL_HUMAN_TASK_METHOD_NAME.equals(callNode.methodName().name().text())) {
+            return false;
+        }
+        Optional<ClassSymbol> optClassSymbol = getClassSymbol(callNode.expression());
+        if (optClassSymbol.isEmpty()) {
+            return false;
+        }
+        ClassSymbol classSymbol = optClassSymbol.get();
+        if (!classSymbol.getName().orElse("").equals(CONTEXT_CLASS_NAME)
+                || !isWorkflowModule(classSymbol.getModule())) {
+            return false;
+        }
+        startNode(NodeKind.HUMAN_TASK, callNode.expression().parent());
+        nodeBuilder.metadata()
+                .label(HUMAN_TASK_LABEL)
+                .description(HUMAN_TASK_DESCRIPTION)
+                .stepOut()
+                .codedata()
+                .nodeInfo(callNode)
+                .org(WORKFLOW_ORG)
+                .module(WORKFLOW_MODULE)
+                .object(CONTEXT_CLASS_NAME)
+                .symbol(CALL_HUMAN_TASK_METHOD_NAME);
+        populateHumanTaskProperties(callNode);
+        // Set checkError from the parent node kind since setFunctionProperties was skipped.
+        SyntaxKind parentKind = callNode.parent().kind();
+        boolean hasCheck = parentKind == SyntaxKind.CHECK_ACTION
+                || parentKind == SyntaxKind.CHECK_EXPRESSION;
+        nodeBuilder.properties().checkError(hasCheck);
+        return true;
     }
 
     /**
