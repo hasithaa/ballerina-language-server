@@ -112,5 +112,6 @@ public enum NodeKind {
     BUILTIN_ACTIVITY,
     SEND_DATA,
     WAIT_DATA,
-    HUMAN_TASK
+    HUMAN_TASK,
+    SLEEP
 }

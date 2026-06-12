@@ -115,22 +115,29 @@ public class AvailableNodesGenerator {
                                        Map<String, String> queryMap) {
         boolean checkAgentToolCompatibility = queryMap != null
                 && "true".equals(queryMap.get("checkAgentToolCompatibility"));
-        List<Category> connections = new ArrayList<>();
-        List<Symbol> symbols = semanticModel.visibleSymbols(document, position);
-        for (Symbol symbol : symbols) {
-            Optional<Category> connection = getConnection(symbol, checkAgentToolCompatibility);
-            if (connection.isEmpty()) {
-                continue;
+
+        boolean isInWorkflowFunction = isInsideWorkflowFunction(position);
+
+        if (!isInWorkflowFunction) {
+            List<Category> connections = new ArrayList<>();
+            List<Symbol> symbols = semanticModel.visibleSymbols(document, position);
+            for (Symbol symbol : symbols) {
+                Optional<Category> connection = getConnection(symbol, checkAgentToolCompatibility);
+                if (connection.isEmpty()) {
+                    continue;
+                }
+                connections.add(connection.get());
             }
-            connections.add(connection.get());
+            connections.sort(Comparator.comparing(connection -> connection.metadata().label()));
+            this.rootBuilder.stepIn(Category.Name.CONNECTIONS).items(new ArrayList<>(connections)).stepOut();
         }
-        connections.sort(Comparator.comparing(connection -> connection.metadata().label()));
-        this.rootBuilder.stepIn(Category.Name.CONNECTIONS).items(new ArrayList<>(connections)).stepOut();
 
         boolean insideTestFunction = isInsideTestFunction(position);
         List<Item> items = new ArrayList<>();
-        items.addAll(getAvailableFlowNodes(position, disableBallerinaAiNodes));
-        items.addAll(LocalIndexCentral.getInstance().getFunctions());
+        items.addAll(getAvailableFlowNodes(position, disableBallerinaAiNodes, isInWorkflowFunction));
+        if (!isInWorkflowFunction) {
+            items.addAll(LocalIndexCentral.getInstance().getFunctions());
+        }
         if (insideTestFunction) {
             items.addAll(LocalIndexCentral.getInstance().getTestFunctions());
         }
@@ -142,6 +149,13 @@ public class AvailableNodesGenerator {
         }
 
         return jsonArray;
+    }
+
+    private boolean isInsideWorkflowFunction(LinePosition position) {
+        int txtPos = this.document.textDocument().textPositionFrom(position);
+        TextRange range = TextRange.from(txtPos, 0);
+        NonTerminalNode node = ((ModulePartNode) document.syntaxTree().rootNode()).findNode(range);
+        return WorkflowUtil.isInsideWorkflowFunction(this.semanticModel, node);
     }
 
     public JsonArray getAvailableNodes(LinePosition position) {
@@ -188,14 +202,12 @@ public class AvailableNodesGenerator {
         return gson.toJsonTree(items).getAsJsonArray();
     }
 
-    private List<Item> getAvailableFlowNodes(LinePosition cursorPosition, boolean disableBallerinaAiNodes) {
+    private List<Item> getAvailableFlowNodes(LinePosition cursorPosition, boolean disableBallerinaAiNodes,
+                                              boolean isInWorkflowFunction) {
         int txtPos = this.document.textDocument().textPositionFrom(cursorPosition);
         TextRange range = TextRange.from(txtPos, 0);
         NonTerminalNode nonTerminalNode = ((ModulePartNode) document.syntaxTree().rootNode()).findNode(range);
         NonTerminalNode iterationNode = nonTerminalNode;
-
-        // Check if we're inside a @workflow:Workflow function
-        boolean isInWorkflowFunction = WorkflowUtil.isInsideWorkflowFunction(this.semanticModel, nonTerminalNode);
 
         while (iterationNode != null) {
             SyntaxKind kind = iterationNode.kind();
@@ -299,9 +311,11 @@ public class AvailableNodesGenerator {
     }
 
     private void setDefaultNodes(boolean disableBallerinaAiNodes, boolean isInWorkflowFunction) {
-        this.rootBuilder.stepIn(Category.Name.AI)
-                .items(getAiNodes(disableBallerinaAiNodes))
-                .stepOut();
+        if (!isInWorkflowFunction) {
+            this.rootBuilder.stepIn(Category.Name.AI)
+                    .items(getAiNodes(disableBallerinaAiNodes))
+                    .stepOut();
+        }
 
         this.rootBuilder.stepIn(Category.Name.WORKFLOW)
                 .items(getWorkflowNodes(isInWorkflowFunction))
@@ -342,18 +356,22 @@ public class AvailableNodesGenerator {
                     .node(NodeKind.ERROR_HANDLER)
                     .node(NodeKind.FAIL)
                     .node(NodeKind.PANIC)
-                    .stepOut()
-                .stepIn(Category.Name.CONCURRENCY)
-                    .node(NodeKind.FORK)
-                    .node(NodeKind.PARALLEL_FLOW)
-                    .node(NodeKind.WAIT)
-                    .node(NodeKind.LOCK)
-                    .node(NodeKind.START)
-                    .node(NodeKind.TRANSACTION)
-                    .node(NodeKind.COMMIT)
-                    .node(NodeKind.ROLLBACK)
-                    .node(NodeKind.RETRY)
                     .stepOut();
+
+        if (!isInWorkflowFunction) {
+            this.rootBuilder
+                    .stepIn(Category.Name.CONCURRENCY)
+                        .node(NodeKind.FORK)
+                        .node(NodeKind.PARALLEL_FLOW)
+                        .node(NodeKind.WAIT)
+                        .node(NodeKind.LOCK)
+                        .node(NodeKind.START)
+                        .node(NodeKind.TRANSACTION)
+                        .node(NodeKind.COMMIT)
+                        .node(NodeKind.ROLLBACK)
+                        .node(NodeKind.RETRY)
+                        .stepOut();
+        }
     }
 
     private List<Item> getAiNodes(boolean disableBallerinaAiNodes) {
@@ -469,9 +487,21 @@ public class AvailableNodesGenerator {
                     true
             );
 
+            AvailableNode sleep = new AvailableNode(
+                    new Metadata.Builder<>(null)
+                            .label(Workflow.SLEEP_LABEL)
+                            .description(Workflow.SLEEP_DESCRIPTION)
+                            .build(),
+                    new Codedata.Builder<>(null)
+                            .node(NodeKind.SLEEP)
+                            .build(),
+                    true
+            );
+
             workflowNodes.add(callActivity);
             workflowNodes.add(humanTask);
             workflowNodes.add(waitData);
+            workflowNodes.add(sleep);
         } else {
             // Outside workflow function: Run Workflow and Send Data
             AvailableNode runWorkflow = new AvailableNode(
