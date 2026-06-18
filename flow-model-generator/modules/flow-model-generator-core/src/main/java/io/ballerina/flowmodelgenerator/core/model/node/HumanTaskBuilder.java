@@ -277,9 +277,9 @@ public class HumanTaskBuilder extends CallBuilder {
         Optional<Property> variableProp = sourceBuilder.getProperty(Property.VARIABLE_KEY);
         Optional<Property> checkErrorProp = sourceBuilder.getProperty(Property.CHECK_ERROR_KEY);
 
-        String resultType = typeProp
+        String resultType = normalizeResultType(typeProp
                 .map(p -> p.value() != null ? p.value().toString() : DEFAULT_RETURN_TYPE)
-                .orElse(DEFAULT_RETURN_TYPE);
+                .orElse(DEFAULT_RETURN_TYPE));
         String variableName = variableProp
                 .map(p -> p.value() != null ? p.value().toString() : "result")
                 .orElse("result");
@@ -338,5 +338,20 @@ public class HumanTaskBuilder extends CallBuilder {
                 args.add(key + " = " + p.value().toString());
             }
         });
+    }
+
+    /**
+     * Strips any trailing {@code |error} from the stored result type so that the unchecked branch of
+     * {@link #toSource} (which appends {@code |error}) does not produce a duplicated — and on each
+     * round-trip, accumulating — {@code ...|error|error} union. When a human task binds to a generic
+     * {@code T|error} variable, the inferred-type derivation keeps the {@code |error}; the result type
+     * field is meant to hold only the success type {@code T}.
+     */
+    private static String normalizeResultType(String resultType) {
+        String normalized = resultType.strip();
+        while (normalized.endsWith("|error")) {
+            normalized = normalized.substring(0, normalized.length() - "|error".length()).strip();
+        }
+        return normalized.isEmpty() ? DEFAULT_RETURN_TYPE : normalized;
     }
 }

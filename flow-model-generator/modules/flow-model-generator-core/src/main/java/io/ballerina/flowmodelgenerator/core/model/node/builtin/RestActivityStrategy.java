@@ -26,8 +26,6 @@ import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Option;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
-import io.ballerina.flowmodelgenerator.core.utils.ParamUtils;
-import io.ballerina.modelgenerator.commons.ParameterData;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -158,115 +156,11 @@ public class RestActivityStrategy implements BuiltinActivityStrategy {
                 .addProperty(HEADERS_KEY);
     }
 
-    /**
-     * Renders the REST-specific form fields when ActivityCallBuilder uses FunctionDataBuilder
-     * to load callRestAPI parameters. Handles method, path, message, and headers to produce
-     * the same rich form (DROPDOWN_CHOICE, TEXT+EXPRESSION, hidden field) as setFormProperties.
-     * Connection is handled centrally by ActivityCallBuilder before this is called.
-     */
-    @Override
-    public boolean processSpecialParameter(ParameterData paramData, NodeBuilder nodeBuilder) {
-        String paramName = ParamUtils.removeLeadingSingleQuote(paramData.name());
-
-        if (METHOD_KEY.equals(paramName)) {
-            List<Option> methodOptions = List.of(
-                    new Option(METHOD_GET, METHOD_GET),
-                    new Option(METHOD_POST, METHOD_POST),
-                    new Option(METHOD_PUT, METHOD_PUT),
-                    new Option(METHOD_DELETE, METHOD_DELETE),
-                    new Option(METHOD_PATCH, METHOD_PATCH));
-
-            Property messageSubProp = new Property.Builder<Void>(null)
-                    .metadata()
-                        .label("Message")
-                        .description("Request body payload (for POST, PUT, PATCH)")
-                        .stepOut()
-                    .type().fieldType(Property.ValueType.EXPRESSION)
-                        .ballerinaType("http:RequestMessage").selected(true).stepOut()
-                    .value("")
-                    .editable(true)
-                    .build();
-
-            Map<String, Map<String, Property>> dynamicFields = new LinkedHashMap<>();
-            dynamicFields.put(METHOD_GET, Map.of());
-            dynamicFields.put(METHOD_POST, Map.of(MESSAGE_KEY, messageSubProp));
-            dynamicFields.put(METHOD_PUT, Map.of(MESSAGE_KEY, messageSubProp));
-            dynamicFields.put(METHOD_DELETE, Map.of());
-            dynamicFields.put(METHOD_PATCH, Map.of(MESSAGE_KEY, messageSubProp));
-
-            nodeBuilder.properties().custom()
-                    .metadata()
-                        .label("Method")
-                        .description("HTTP method to invoke")
-                        .stepOut()
-                    .type()
-                        .fieldType(Property.ValueType.DROPDOWN_CHOICE)
-                        .options(methodOptions)
-                        .selected(true)
-                        .stepOut()
-                    .codedata().kind(REQUIRED.name()).stepOut()
-                    .value(METHOD_GET)
-                    .editable(true)
-                    .itemOptions(ItemOption.from(methodOptions))
-                    .dynamicFormFields(dynamicFields)
-                    .stepOut()
-                    .addProperty(METHOD_KEY);
-            return true;
-        }
-
-        if (PATH_KEY.equals(paramName)) {
-            nodeBuilder.properties().custom()
-                    .metadata()
-                        .label("Path")
-                        .description("Resource path appended to the connection's base URL (e.g., \"/users/1\")")
-                        .stepOut()
-                    .type().fieldType(Property.ValueType.TEXT).ballerinaType("string").selected(true).stepOut()
-                    .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("string").selected(false).stepOut()
-                    .value("")
-                    .placeholder("/users/1")
-                    .editable(true)
-                    .optional(true)
-                    .stepOut()
-                    .addProperty(PATH_KEY);
-            return true;
-        }
-
-        if (MESSAGE_KEY.equals(paramName)) {
-            nodeBuilder.properties().custom()
-                    .metadata()
-                        .label("Message")
-                        .description("Request body payload (for POST, PUT, PATCH)")
-                        .stepOut()
-                    .type().fieldType(Property.ValueType.EXPRESSION)
-                        .ballerinaType("http:RequestMessage").selected(true).stepOut()
-                    .value("")
-                    .editable(true)
-                    .optional(true)
-                    .hidden(true)
-                    .stepOut()
-                    .addProperty(MESSAGE_KEY);
-            return true;
-        }
-
-        if (HEADERS_KEY.equals(paramName)) {
-            nodeBuilder.properties().custom()
-                    .metadata()
-                        .label("Headers")
-                        .description("Optional request headers")
-                        .stepOut()
-                    .type().fieldType(Property.ValueType.EXPRESSION)
-                        .ballerinaType("map<string|string[]>?").selected(true).stepOut()
-                    .value("")
-                    .editable(true)
-                    .optional(true)
-                    .advanced(true)
-                    .stepOut()
-                    .addProperty(HEADERS_KEY);
-            return true;
-        }
-
-        return false;
-    }
+    // NOTE: BuiltinActivityStrategy.processSpecialParameter is intentionally NOT overridden here.
+    // ActivityCallBuilder.processSpecialParameter routes RestActivityStrategy params to its own
+    // private processRestParameter(...) and never delegates to the strategy, so a REST override
+    // would be dead code. The default (return false) is inherited; the fallback form for REST is
+    // produced by setFormProperties(...).
 
     @Override
     public String activityFunctionSymbol() {
