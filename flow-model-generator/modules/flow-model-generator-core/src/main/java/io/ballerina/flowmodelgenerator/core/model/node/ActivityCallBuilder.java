@@ -108,6 +108,7 @@ public class ActivityCallBuilder extends CallBuilder {
     private static final String ACTIVITY_MODULE_PREFIX = "activity";
     private static final String DEFAULT_REST_DATABINDING = "json";
     private static final String SOAP_RESPONSE_TYPE = "xml";
+    private static final String DATABINDING_LABEL = "Databinding";
 
     /**
      * Maps builtin activity function symbols to the strategy that handles their form and source generation.
@@ -263,7 +264,36 @@ public class ActivityCallBuilder extends CallBuilder {
                 .filter(param -> param.kind() == ParameterData.Kind.PARAM_FOR_TYPE_INFER)
                 .findFirst();
         Module module = context.workspaceManager().module(context.filePath()).orElse(null);
-        inferredTypeParam.ifPresent(param -> buildInferredTypeProperty(this, param, value, module));
+        inferredTypeParam.ifPresent(param -> {
+            buildInferredTypeProperty(this, param, value, module);
+            relabelDatabindingProperty(ParamUtils.removeLeadingSingleQuote(param.name()));
+        });
+    }
+
+    /**
+     * Relabels the REST databinding (inferred return type) property so the form shows a meaningful
+     * "Databinding" label instead of the raw {@code callActivity} type-parameter name ("T"), and marks
+     * its {@code TYPE} entry as selected. {@link #buildInferredTypeProperty} falls back to the parameter
+     * name when the parameter has no doc label and leaves the type unselected; an unselected type entry
+     * makes the UI render a spurious second, empty type selector next to it.
+     *
+     * @param key the property key (the unescaped inferred type-parameter name)
+     */
+    private void relabelDatabindingProperty(String key) {
+        Map<String, Property> properties = properties().build();
+        Property existing = properties.get(key);
+        if (existing == null) {
+            return;
+        }
+        String ballerinaType = existing.types() != null && !existing.types().isEmpty()
+                ? existing.types().get(0).ballerinaType()
+                : DEFAULT_RETURN_TYPE;
+        Property relabeled = Property.Builder.copyFrom(existing)
+                .clearTypes()
+                .type().fieldType(Property.ValueType.TYPE).ballerinaType(ballerinaType).selected(true).stepOut()
+                .metadata().label(DATABINDING_LABEL).stepOut()
+                .build();
+        properties.put(key, relabeled);
     }
 
     private void addCheckErrorProperty() {
