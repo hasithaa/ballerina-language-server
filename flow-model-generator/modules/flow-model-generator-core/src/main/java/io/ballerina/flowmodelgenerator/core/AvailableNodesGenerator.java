@@ -321,12 +321,6 @@ public class AvailableNodesGenerator {
                 .items(getWorkflowNodes(isInWorkflowFunction))
                 .stepOut();
 
-        if (isInWorkflowFunction) {
-            this.rootBuilder.stepIn(Category.Name.BUILTIN_ACTIVITIES)
-                    .items(getBuiltinActivityNodes())
-                    .stepOut();
-        }
-
         AvailableNode function = new AvailableNode(
                 new Metadata.Builder<>(null)
                         .label("Call Function")
@@ -453,7 +447,7 @@ public class AvailableNodesGenerator {
         List<Item> workflowNodes = new ArrayList<>();
 
         if (isInWorkflowFunction) {
-            // Inside a workflow function: only Call Activity, Human Task, and Wait for Data
+            // Inside a workflow function: Call Activity, Await HumanTask, Await Data, Sleep
             AvailableNode callActivity = new AvailableNode(
                     new Metadata.Builder<>(null)
                             .label(Workflow.CALL_ACTIVITY_LABEL)
@@ -464,6 +458,8 @@ public class AvailableNodesGenerator {
                             .build(),
                     true
             );
+
+            workflowNodes.add(callActivity);
 
             AvailableNode humanTask = new AvailableNode(
                     new Metadata.Builder<>(null)
@@ -498,7 +494,6 @@ public class AvailableNodesGenerator {
                     true
             );
 
-            workflowNodes.add(callActivity);
             workflowNodes.add(humanTask);
             workflowNodes.add(waitData);
             workflowNodes.add(sleep);
@@ -531,30 +526,6 @@ public class AvailableNodesGenerator {
         }
 
         return workflowNodes;
-    }
-
-    private List<Item> getBuiltinActivityNodes() {
-        List<Item> builtinNodes = new ArrayList<>();
-        builtinNodes.add(buildBuiltinNode(
-                Workflow.BUILTIN_REST_LABEL, Workflow.BUILTIN_REST_DESCRIPTION, Workflow.BUILTIN_REST_FUNCTION));
-        builtinNodes.add(buildBuiltinNode(
-                Workflow.BUILTIN_SOAP_LABEL, Workflow.BUILTIN_SOAP_DESCRIPTION, Workflow.BUILTIN_SOAP_FUNCTION));
-        builtinNodes.add(buildBuiltinNode(
-                Workflow.BUILTIN_EMAIL_LABEL, Workflow.BUILTIN_EMAIL_DESCRIPTION, Workflow.BUILTIN_EMAIL_FUNCTION));
-        return builtinNodes;
-    }
-
-    private AvailableNode buildBuiltinNode(String label, String description, String functionSymbol) {
-        return new AvailableNode(
-                new Metadata.Builder<>(null).label(label).description(description).build(),
-                new Codedata.Builder<>(null)
-                        .node(NodeKind.BUILTIN_ACTIVITY)
-                        .org(Workflow.WORKFLOW_ORG)
-                        .module(Workflow.ACTIVITY_MODULE)
-                        .symbol(functionSymbol)
-                        .build(),
-                true
-        );
     }
 
     private void setStopNode(NonTerminalNode node) {

@@ -152,6 +152,7 @@ import io.ballerina.flowmodelgenerator.core.model.node.EmbeddingProviderBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.FailBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.FunctionCall;
 import io.ballerina.flowmodelgenerator.core.model.node.FunctionDefinitionBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.HumanTaskBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.IfBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.JsonPayloadBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.KnowledgeBaseBuilder;
@@ -1082,13 +1083,64 @@ public class CodeAnalyzer extends NodeVisitor {
      * @param callNode the {@code ctx->awaitHumanTask(...)} call node
      */
     private void populateHumanTaskProperties(RemoteMethodCallActionNode callNode) {
-        SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
-
         Map<String, Property> currentProps = nodeBuilder.properties().build();
         Property savedCheckError = currentProps.get(Property.CHECK_ERROR_KEY);
         boolean uncheckedInDoClause = callNode.parent().kind() != SyntaxKind.CHECK_ACTION
                 && callNode.parent().kind() != SyntaxKind.CHECK_EXPRESSION
                 && CommonUtils.withinDoClause(callNode);
+
+        // When the awaitHumanTask symbol resolves, setFunctionProperties/processFunctionSymbol have already
+        // built rich, type-aware properties: each param carries its real type symbol and imports, and the
+        // inferred `typedesc<anydata> T` parameter is a record-field-aware result-type selector. Reuse them
+        // (relabel + add the result variable) instead of discarding the type metadata with a hardcoded form.
+        boolean resolved = currentProps.containsKey("taskName") || currentProps.containsKey("userRoles");
+        if (resolved) {
+            populateResolvedHumanTaskProperties();
+        } else {
+            populateFallbackHumanTaskProperties(callNode, currentProps);
+        }
+
+        if (savedCheckError != null) {
+            boolean checkError = savedCheckError.value() != null
+                    && Boolean.parseBoolean(savedCheckError.value().toString());
+            nodeBuilder.properties().checkError(checkError);
+        } else if (uncheckedInDoClause) {
+            nodeBuilder.properties().checkError(false);
+        }
+    }
+
+    /**
+     * Resolved path: relabels the rich {@code awaitHumanTask} properties built by
+     * {@code processFunctionSymbol}, drops the implicit {@code ctx} connection, and sets the result variable
+     * explicitly so {@code handleVariableNode} skips its generic {@code dataVariable()} (which would otherwise
+     * add a duplicate {@code TYPE_KEY} alongside the inferred {@code T} result-type selector).
+     */
+    private void populateResolvedHumanTaskProperties() {
+        Map<String, Property> currentProps = nodeBuilder.properties().build();
+        currentProps.remove(Property.CONNECTION_KEY);
+
+        HumanTaskBuilder.relabelHumanTaskFormProperties(currentProps);
+
+        if (typedBindingPatternNode != null) {
+            String varText = typedBindingPatternNode.bindingPattern().toSourceCode().strip();
+            nodeBuilder.properties().custom()
+                    .metadata().label(Property.RESULT_NAME).description(Property.RESULT_DOC).stepOut()
+                    .value(varText)
+                    .type().fieldType(Property.ValueType.IDENTIFIER).selected(true).stepOut()
+                    .editable(true).stepOut()
+                    .addProperty(Property.VARIABLE_KEY);
+        }
+    }
+
+    /**
+     * Fallback path used when the {@code awaitHumanTask} symbol cannot be resolved (e.g., the installed
+     * workflow library predates it). Reads positional/named args directly and builds a stable, static form
+     * matching {@link HumanTaskBuilder}'s fallback shape. The result type uses the inferred {@code T} key so
+     * {@code toSource} round-trips consistently with the resolved path.
+     */
+    private void populateFallbackHumanTaskProperties(RemoteMethodCallActionNode callNode,
+                                                     Map<String, Property> currentProps) {
+        SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
         currentProps.clear();
 
         // Collect all named args first for use as fallback for required params
@@ -1139,6 +1191,9 @@ public class CodeAnalyzer extends NodeVisitor {
 
         // payload — DEFAULTABLE map<json>
         String payloadValue = namedArgs.get("payload");
+        if (payloadValue == null && args.size() > 2 && args.get(2) instanceof PositionalArgumentNode posArg2) {
+            payloadValue = posArg2.expression().toSourceCode().strip();
+        }
         nodeBuilder.properties().custom()
                 .metadata().label("Payload").description("Read-only JSON object shown alongside the form").stepOut()
                 .type().fieldType(Property.ValueType.EXPRESSION).ballerinaType("map<json>").selected(true).stepOut()
@@ -1160,6 +1215,9 @@ public class CodeAnalyzer extends NodeVisitor {
 
         // description — DEFAULTABLE string?
         String descValue = namedArgs.get("description");
+        if (descValue == null && args.size() > 3 && args.get(3) instanceof PositionalArgumentNode posArg3) {
+            descValue = posArg3.expression().toSourceCode().strip();
+        }
         nodeBuilder.properties().custom()
                 .metadata().label("Description").description("Additional context shown alongside the form").stepOut()
                 .type().fieldType(Property.ValueType.TEXT).ballerinaType("string?").selected(true).stepOut()
@@ -1180,27 +1238,22 @@ public class CodeAnalyzer extends NodeVisitor {
                 .editable(true).optional(true).stepOut()
                 .addProperty("timeout");
 
-        // TYPE_KEY and VARIABLE_KEY (from typedBindingPatternNode)
+        // Inferred result type ("T") and result variable (from typedBindingPatternNode)
         if (typedBindingPatternNode != null) {
             String typeText = typedBindingPatternNode.typeDescriptor().toSourceCode().strip();
             nodeBuilder.properties().custom()
                     .metadata().label(Property.RESULT_TYPE_LABEL)
                         .description("The expected return type of the human task result").stepOut()
-                    .value(typeText).type().fieldType(Property.ValueType.TYPE).selected(true).stepOut()
-                    .editable(true).stepOut().addProperty(Property.TYPE_KEY);
+                    .value(typeText)
+                    .type().fieldType(Property.ValueType.TYPE).ballerinaType(typeText).selected(true).stepOut()
+                    .codedata().kind(ParameterData.Kind.PARAM_FOR_TYPE_INFER.name())
+                        .originalName(HumanTaskBuilder.INFERRED_TYPE_KEY).stepOut()
+                    .editable(true).stepOut().addProperty(HumanTaskBuilder.INFERRED_TYPE_KEY);
             String varText = typedBindingPatternNode.bindingPattern().toSourceCode().strip();
             nodeBuilder.properties().custom()
                     .metadata().label(Property.RESULT_NAME).description(Property.RESULT_DOC).stepOut()
                     .value(varText).type().fieldType(Property.ValueType.IDENTIFIER).selected(true).stepOut()
                     .editable(true).stepOut().addProperty(Property.VARIABLE_KEY);
-        }
-
-        if (savedCheckError != null) {
-            boolean checkError = savedCheckError.value() != null
-                    && Boolean.parseBoolean(savedCheckError.value().toString());
-            nodeBuilder.properties().checkError(checkError);
-        } else if (uncheckedInDoClause) {
-            nodeBuilder.properties().checkError(false);
         }
     }
 

@@ -115,7 +115,7 @@ public class Constants {
         public static final String AWAIT_METHOD_NAME = "await";
         public static final String CALL_ACTIVITY_LABEL = "Call Activity";
         public static final String CALL_ACTIVITY_DESCRIPTION = "Call a workflow activity function";
-        public static final String WAIT_DATA_LABEL = "Wait for Data";
+        public static final String WAIT_DATA_LABEL = "Await Data";
         public static final String WAIT_DATA_DESCRIPTION = "Wait for workflow data to be received";
         public static final String WORKFLOW = "Workflow";
         public static final String ACTIVITY = "Activity";
@@ -137,7 +137,7 @@ public class Constants {
         public static final String BUILTIN_EMAIL_FUNCTION = "sendEmail";
 
         public static final String CALL_HUMAN_TASK_METHOD_NAME = "awaitHumanTask";
-        public static final String HUMAN_TASK_LABEL = "Call Human Task";
+        public static final String HUMAN_TASK_LABEL = "Await HumanTask";
         public static final String HUMAN_TASK_DESCRIPTION = "Create a human task and wait for a human to complete it";
 
         public static final String SLEEP_METHOD_NAME = "sleep";
